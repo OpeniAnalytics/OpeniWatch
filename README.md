@@ -72,6 +72,7 @@ Demo mode is labelled in the interface. It is never presented as a live backend.
 | `npm run test:e2e` | Critical-workflow tests (Playwright) |
 | `npm run test:rls` | Apply the migrations to a throwaway PostgreSQL database and run the Row Level Security scenario tests |
 | `npm run seed:users` | Create the six development users in a Supabase project |
+| `npm run validate:staging` | Run the live-infrastructure acceptance suite against a deployed Supabase project |
 
 `npm run test:e2e` builds the app and serves it automatically. On a machine
 with a pre-installed Chromium at `/opt/pw-browsers/chromium`, that binary is
@@ -144,10 +145,14 @@ Supabase Auth, PostgreSQL, Realtime and Edge Functions.
 > applies every migration twice (proving repeatability), checks the seeded pilot
 > data, and runs 28 role-based access scenarios.
 >
-> The Supabase **client** path — Auth, Realtime, and the Edge Function — needs a
-> deployed project and has not been exercised end to end here; the application
-> tests cover the local provider. `docs/DEPLOYMENT.md` lists the checks to run
-> after first deployment.
+> The Supabase **client** path — Auth, Realtime, Edge Functions, web push and
+> the Netlify deployment — has **not** been exercised: the environment this was
+> built in has no network route to Supabase, Netlify or OneSignal, and no
+> credentials. Those integrations are labelled *implemented but not verified*.
+>
+> `npm run validate:staging` performs every one of those checks against a
+> deployed project and exits non-zero on failure. See
+> [`docs/PRODUCTION_READINESS.md`](docs/PRODUCTION_READINESS.md).
 
 ---
 
@@ -221,11 +226,13 @@ openiwatch/
 │   ├── simulator/         Eight development scenarios
 │   └── app/               Data and theme context
 ├── supabase/
-│   ├── migrations/        Nine ordered, re-runnable SQL migrations
-│   ├── functions/         ingest-signal Edge Function and shared schema
+│   ├── migrations/        Twelve ordered, re-runnable SQL migrations
+│   ├── functions/         ingest-signal, dispatch-notifications,
+│   │                      escalate-unacknowledged, and shared modules
 │   └── tests/             RLS scenario tests (real PostgreSQL)
 ├── e2e/                   Playwright critical-workflow tests
-├── scripts/               seed-users.mjs, test-rls.sh
+├── scripts/               seed-users.mjs, test-rls.sh,
+│                       validate-staging.mjs, perf-dataset.sql
 └── docs/                  Architecture, data model, workflow, scoring,
                            integrations, security, deployment, pilot setup
 ```
@@ -244,6 +251,12 @@ openiwatch/
 | [`docs/SECURITY.md`](docs/SECURITY.md) | RLS, roles, privacy and intelligence standards |
 | [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Netlify and Supabase deployment |
 | [`docs/PILOT_SETUP.md`](docs/PILOT_SETUP.md) | Pilot data, seed users and demo script |
+| [`docs/PRODUCTION_READINESS.md`](docs/PRODUCTION_READINESS.md) | **Every integration's real status, and what is still blocked** |
+| [`docs/STAGING_ACCEPTANCE.md`](docs/STAGING_ACCEPTANCE.md) | The staging acceptance checklist |
+| [`docs/ROLE_TEST_MATRIX.md`](docs/ROLE_TEST_MATRIX.md) | What each role may do, and how it is verified |
+| [`docs/ONESIGNAL_SETUP.md`](docs/ONESIGNAL_SETUP.md) | Web push setup and verification |
+| [`docs/RETENTION.md`](docs/RETENTION.md) | Retention policy, holds, dry runs and purging |
+| [`docs/PR_PHASE_1.md`](docs/PR_PHASE_1.md) | Pull request description |
 
 ---
 

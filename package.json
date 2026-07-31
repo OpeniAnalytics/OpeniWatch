@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "OpeniWatch — location-based threat detection, validation, alerting, and reporting platform.",
+  "description": "OpeniWatch \u2014 location-based threat detection, validation, alerting, and reporting platform.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -14,7 +14,9 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "seed:users": "node scripts/seed-users.mjs",
-    "test:rls": "bash scripts/test-rls.sh"
+    "test:rls": "bash scripts/test-rls.sh",
+    "validate:staging": "node scripts/validate-staging.mjs",
+    "perf:dataset": "psql -f scripts/perf-dataset.sql"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.1.4",

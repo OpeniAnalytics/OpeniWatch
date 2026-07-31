@@ -251,8 +251,10 @@ test.describe('Integration honesty', () => {
     await expect(page.getByText('Zignal / Spyglass').first()).toBeVisible()
     await expect(page.getByText(/requires vendor documentation/i).first()).toBeVisible()
 
-    // Twilio reports itself unavailable rather than silently failing.
+    // Twilio reports itself disabled rather than silently failing or, worse,
+    // pretending to have sent something.
     await expect(page.getByText(/Twilio SMS/).first()).toBeVisible()
-    await expect(page.getByText(/interface only in Phase 1/i).first()).toBeVisible()
+    await expect(page.getByText(/SMS is disabled/i).first()).toBeVisible()
+    await expect(page.getByText(/No Twilio request is attempted/i).first()).toBeVisible()
   })
 })
