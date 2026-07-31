@@ -2,7 +2,13 @@
 
 **Status: implemented but not verified.** Every piece of code is complete. It
 has never run against a real OneSignal application, because this environment
-has no network route to `onesignal.com` and no credentials.
+has no network route to `onesignal.com` and no credentials. Re-checked at the
+start of Phase 3: `onesignal.com` returns 403 on CONNECT, and both
+`ONESIGNAL_APP_ID` and `ONESIGNAL_REST_API_KEY` are absent.
+
+No OneSignal application has been created, no web-push configuration exists, no
+device has opted in, and no notification has been sent. Nothing in this document
+describes an observed result.
 
 ## Design rules
 

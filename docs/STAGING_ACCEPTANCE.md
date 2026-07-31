@@ -3,12 +3,20 @@
 The checklist that decides whether staging is fit for a controlled client
 demonstration.
 
-**Current status: not run.** This environment has no network route to Supabase,
-Netlify or OneSignal, and no credentials for any of them. See
+**Current status: not run.** No staging deployment exists. This environment has
+no network route to Supabase, Netlify or OneSignal, and no credentials for any
+of them — re-measured at the start of Phase 3, not assumed. See
 [`PRODUCTION_READINESS.md`](PRODUCTION_READINESS.md) for the evidence.
 
 Every check below is either automated by `npm run validate:staging` or listed as
 a manual browser step.
+
+A small number of these checks now have **local** equivalents that do run. They
+are marked *(locally covered)* below. That means the rendering and role logic
+behind the check is exercised by Playwright against a production build in demo
+mode — it does **not** mean the check has passed against a deployed site, and it
+proves nothing about RLS, Auth, Realtime or the Netlify configuration. The box
+stays unticked either way.
 
 ---
 
@@ -94,12 +102,15 @@ Exits non-zero on any failure and prints each one.
 
 ### Role restrictions through the deployed interface
 
-- [ ] SOC manager: no analyst queue in navigation
-- [ ] SOC manager: typing `/queue` shows the refusal panel, not the queue
-- [ ] Viewer: alert detail has no action bar
-- [ ] Viewer: administration is read-only with the reason stated
+- [ ] SOC manager: no analyst queue in navigation *(locally covered)*
+- [ ] SOC manager: typing `/queue` shows the refusal panel, not the queue *(locally covered — `/simulator` and viewer `/queue` variants)*
+- [ ] Viewer: alert detail has no action bar *(locally covered)*
+- [ ] Viewer: administration is read-only with the reason stated *(locally covered)*
 - [ ] Analyst: administration controls disabled
 - [ ] Simulator absent for every role while `VITE_ENABLE_SIMULATOR=false`
+- [ ] **The same denials hold at the database.** Hiding a control is not a
+      result. `validate:staging` re-attempts each denied operation through an
+      authenticated session and fails if the database permits it
 
 ### Workflow
 
@@ -141,11 +152,15 @@ Exits non-zero on any failure and prints each one.
 - [ ] Bundle contains no service-role key (`validate:staging` checks this)
 - [ ] Kill switch: turning off outbound notifications shows the banner, and new
       deliveries record `disabled`
-- [ ] SMS records `disabled`, never `sent` or `simulated`
-- [ ] External source links open with `noopener noreferrer nofollow`
+- [ ] SMS records `disabled`, never `sent` or `simulated` *(locally covered)*
+- [ ] External source links open with `noopener noreferrer nofollow` *(locally covered)*
 - [ ] A signal containing `<script>alert(1)</script>` renders as text everywhere
-      it appears — feed, detail, CSV export
-- [ ] A signal with a `javascript:` source URL renders no link
+      it appears — feed, detail, CSV export *(locally covered for the queue,
+      detail and note views by `e2e/security.spec.ts`; the CSV path is unit
+      tested for formula injection but not asserted end to end)*
+- [ ] A signal with a `javascript:` source URL renders no link *(locally
+      covered — note that the rejection comes from the shared schema, not from
+      `type="url"`, which accepts `javascript:` because it has a scheme)*
 
 ---
 

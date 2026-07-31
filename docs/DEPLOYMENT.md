@@ -4,6 +4,12 @@ OpeniWatch is a static single-page application plus a Supabase backend. All
 server-side work runs in Supabase Edge Functions, so the hosting platform never
 holds a secret beyond the browser-safe `VITE_` values.
 
+> **This document is instructions, not a record.** No deployment described here
+> has been performed. No Supabase project, Netlify site or OneSignal application
+> exists. The steps are written to be followed, and
+> [`PRODUCTION_READINESS.md`](PRODUCTION_READINESS.md) records why they could
+> not be.
+
 ---
 
 ## 1. Supabase
@@ -27,7 +33,7 @@ supabase start
 supabase db reset     # applies every migration in order
 ```
 
-Migrations run in filename order (`0001` … `0009`) and are re-runnable: enum
+Migrations run in filename order (`0001` … `0012`) and are re-runnable: enum
 creation is guarded, tables use `IF NOT EXISTS`, seeds use `ON CONFLICT`, and
 policies are dropped before being recreated. Applying them twice is a no-op.
 

@@ -4,27 +4,44 @@ Status of every item that stands between this branch and a client
 demonstration. Nothing here is marked complete on the strength of local demo
 mode.
 
-**Phase 2 could not be completed as specified.** The environment running this
-work has no network route to Supabase, Netlify or OneSignal (the proxy returns
-403 on CONNECT for all three), no Docker daemon to run a local Supabase stack,
-and no credentials for any of the three services. Every objective that needs
-live infrastructure is therefore marked **BLOCKED**, with the exact credential
-or action required and the exact command to run afterwards.
+**Phases 2 and 3 could not be completed as specified.** Phase 3 was briefed on
+the basis that "the external service credentials and network access required for
+staging are now available." They are not. This was re-checked at the start of
+Phase 3 rather than assumed either way, and re-checked again before this
+document was written.
 
-Verified at the time of writing:
+Every objective that needs live infrastructure is therefore marked **BLOCKED**,
+with the exact credential or action required and the exact command to run
+afterwards.
+
+Measured, not inferred:
 
 ```
-supabase.com        -> connection refused by network policy (403 on CONNECT)
-api.supabase.com    -> connection refused
-netlify.com         -> connection refused
-api.netlify.com     -> connection refused
-onesignal.com       -> connection refused
-api.onesignal.com   -> connection refused
-docker info         -> daemon not running (/var/run/docker.sock absent)
-SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ACCESS_TOKEN,
-NETLIFY_AUTH_TOKEN, ONESIGNAL_APP_ID, ONESIGNAL_REST_API_KEY,
-OPENIWATCH_INGEST_SECRET -> all absent
+# Environment variables — presence only, no values read or printed
+SUPABASE_URL                 ABSENT      VITE_SUPABASE_URL        ABSENT
+SUPABASE_SERVICE_ROLE_KEY    ABSENT      VITE_SUPABASE_ANON_KEY   ABSENT
+SUPABASE_ACCESS_TOKEN        ABSENT      OPENIWATCH_INGEST_SECRET ABSENT
+SUPABASE_DB_PASSWORD         ABSENT      OPENIWATCH_SEED_PASSWORD ABSENT
+ONESIGNAL_APP_ID             ABSENT      ONESIGNAL_REST_API_KEY   ABSENT
+NETLIFY_AUTH_TOKEN           ABSENT      NETLIFY_SITE_ID          ABSENT
+GOOGLE_MAPS_API_KEY          ABSENT
+
+# No .env, .env.local or .env.staging file exists in the working tree.
+# Neither the supabase nor the netlify CLI is installed.
+
+# Network — HTTPS CONNECT through the configured proxy
+supabase.com        403      api.supabase.com    unreachable
+netlify.com         403      api.netlify.com     unreachable
+onesignal.com       403      api.onesignal.com   unreachable
+
+docker info         daemon not running (/var/run/docker.sock absent)
 ```
+
+Consequently: no Supabase staging project was created, no migration was pushed
+to Supabase, no user was seeded, no Edge Function was deployed, no Netlify site
+was created, no OneSignal application was configured, and
+`npm run validate:staging` has never been executed. Nothing below should be read
+as implying otherwise.
 
 ---
 
@@ -44,9 +61,10 @@ Every integration carries exactly one label.
 | Supabase Auth | **Implemented but not verified** | No live project reachable |
 | Supabase Realtime | **Implemented but not verified** | Subscription code written; never observed delivering |
 | OneSignal web push | **Implemented but not verified** | Server-side dispatcher, opt-in registration, service worker and CSP all complete. Requires credentials |
-| Twilio SMS | **Disabled** | No request is attempted. `disabled` is recorded with the reason |
+| Twilio SMS | **Disabled** | No request is attempted. `disabled` is recorded with the reason. Asserted by Playwright |
 | Automatic escalation | **Implemented but not verified** | Edge Function complete and idempotent by construction; never run on a schedule |
-| Data retention | **Implemented but not verified** | Report, purge, holds and audit complete; scheduler disabled by default |
+| Data retention | **Implemented and verified (PostgreSQL), not verified (Supabase)** | 12 scenarios execute the real report, dry run and purge against real PostgreSQL, including a real deletion, a refused purge and a surviving hold. Never run on a live project; scheduler disabled by default |
+| Output encoding / stored XSS defence | **Implemented and verified** | 7 Playwright tests submit hostile markup through the real submission path and assert it never executes anywhere it is rendered |
 | Email / Microsoft Teams / outbound webhook | **Stubbed** | Report themselves unavailable |
 | RSS / news, public safety feed | **Requires credentials** | Normalizers ready |
 | Zignal / Spyglass collection | **Requires vendor documentation** | Ten specific items listed in `INTEGRATIONS.md`. No endpoints fabricated |
@@ -56,7 +74,24 @@ Every integration carries exactly one label.
 
 ## Blocked objectives
 
-### Step 3 — live Supabase staging project — BLOCKED
+Phase 2 and Phase 3 numbered their steps differently. The mapping, so neither
+brief has to be read against the other:
+
+| Objective | Phase 2 step | Phase 3 step |
+| --- | :-: | :-: |
+| Live Supabase staging project | 3 | 5 |
+| Authenticated role validation | 4 | 6 |
+| Cross-tenant isolation | 5 | 7 |
+| Ingestion against a deployed function | 6 | 8 |
+| Full live workflow including Realtime | 7 | 9 |
+| OneSignal web push | 8 | 10 |
+| Automatic escalation | — | 11 |
+| Netlify staging deployment | 16 | 12 |
+| Browser acceptance against the deployed site | 17 | 13 |
+| Realistic staging performance figures | — | 14 |
+| Coordinate verification | — | 15 |
+
+### Step 3 (Phase 3 step 5) — live Supabase staging project — BLOCKED
 
 **Needs:** a Supabase account, a staging project, and its URL, anon key and
 service-role key. Network access to `*.supabase.co` and `api.supabase.com`.
@@ -134,9 +169,64 @@ See `ONESIGNAL_SETUP.md`.
 security headers, CSP for Supabase and OneSignal, service-worker headers and
 cache policy. The acceptance checklist is `STAGING_ACCEPTANCE.md`.
 
+### Phase 3 step 14 — realistic staging performance — BLOCKED
+
+What exists is genuine but is not a staging figure: `scripts/perf-dataset.sql`
+loads 10,000 signals, 1,000 candidates, 250 alerts, 50 locations and 502
+profiles into local PostgreSQL, and `EXPLAIN ANALYZE` shows every paginated
+query index-backed and under 0.12 ms. That measures the **query plan**, on
+local disk, with no network, no PostgREST, no RLS-under-Auth overhead and no
+concurrency.
+
+A staging number needs the round trip an operator actually experiences. It is
+not derivable from the local figure and is not claimed here. Once staging
+exists, load the dataset and record wall-clock time for: sign-in, first paint of
+the alert feed, feed pagination, alert detail, and analyst-queue load — each
+from a browser against the deployed site, not from psql.
+
+**Do not present the sub-millisecond local figures as staging performance, and
+do not present either as production-scale readiness.** The dataset is a pilot
+approximation, not a production load test.
+
+### Phase 3 step 15 — coordinate verification — BLOCKED
+
+All seven pilot sites are `unverified` with a recorded ±250 m accuracy, and
+migration `0011` widens property and parking geofences to 450 m to compensate.
+That is the honest state, not a placeholder to be quietly flipped.
+
+**Needs:** a geocoding API key. `maps.googleapis.com` is the one host reachable
+from this environment (302), but it returns `REQUEST_DENIED` without a key. No
+`GOOGLE_MAPS_API_KEY` is present.
+
+**When run:** a geocoding result alone must not set a status of `verified`.
+Migration `0011` enforces that a verified status carries both a method and a
+timestamp; the operational rule is that `verified` means a person confirmed the
+point against the site, and a geocoder result is recorded as
+`provider_geocoded`. Widened geofences stay until that confirmation happens.
+
 ---
 
-## Completed in this phase, verified locally
+## Completed in Phase 3, verified locally
+
+Phase 3 could not deploy anything, so the work done was to convert claims that
+existed only in documentation into tests that execute. Two did.
+
+| Item | Evidence |
+| --- | --- |
+| Stored content cannot execute | `e2e/security.spec.ts` — hostile `<script>` and `<img onerror>` payloads submitted through the real manual-submission path in the signal text, the public author handle and an operational note; asserted inert in the analyst queue, the alert detail view and the note list. 7 tests, all passing |
+| `type="url"` is not a security control | Same file. `javascript:alert(1)` is *accepted* by the input element; the shared schema is what rejects it. The test asserts the schema's refusal surfaces and no pipeline result is produced |
+| External link hardening | Same file — `target="_blank"` with `rel` containing `noopener`, `noreferrer` and `nofollow` |
+| Route refusal on direct URL entry | Same file — a SOC manager typing `/simulator` and a viewer typing `/queue` both get the refusal panel, with the protected region absent from the DOM |
+| Retention behaves as documented | `supabase/tests/retention_scenarios.sql` — 12 checks against real PostgreSQL, including a real deletion, a refused purge with the switch off, a surviving hold, and audit events outliving the purge that wrote them. All passing |
+| Baseline re-verified from a clean checkout | typecheck exit 0; lint exit 0; 166 unit tests passed; production build clean (entry chunk 235.82 kB / 64.93 kB gzipped); migrations applied twice cleanly; 28 RLS checks passed; 12 retention checks passed; 12 Playwright tests passed (4 workflow + 1 mobile + 7 security); 12 schema-parity tests passed |
+| Secret scan of full git history | all 165 blobs scanned for JWT, Supabase (`sbp_`), Twilio (`AC…`), OpenAI, SendGrid and private-key shapes — 0 matches. A broader keyword sweep matches only variable *names* in documentation and operator-facing text, plus the PostgreSQL role literally named `service_role` |
+
+Phase 3 did **not** add live Zignal ingestion, Twilio SMS, or any unrelated
+product feature.
+
+---
+
+## Completed in Phase 2, verified locally
 
 | Item | Evidence |
 | --- | --- |
@@ -152,7 +242,7 @@ cache policy. The acceptance checklist is `STAGING_ACCEPTANCE.md`.
 | Honest delivery vocabulary | `queued`/`sent`/`delivered`/`disabled` distinguished; provider acceptance never recorded as delivery |
 | SMS cannot fire | `disabled` outcome, no Twilio request in any code path |
 | Coordinates not falsely marked verified | Migration 0011; all seven pilot sites `unverified` with ±250 m recorded |
-| Secret scan of full git history | 122 blobs; 7 hits, all documentation placeholders or the `service_role` PostgreSQL role name |
+| Secret scan of full git history | 122 blobs at the time; hits were documentation placeholders or the `service_role` PostgreSQL role name. Re-run in Phase 3 across all 165 blobs in history with the same result |
 | Dependency advisories | See below |
 
 ---
@@ -161,22 +251,37 @@ cache policy. The acceptance checklist is `STAGING_ACCEPTANCE.md`.
 
 ### react-router advisory GHSA (RSC-mode CSRF), severity high
 
-`npm audit` reports one high advisory against `react-router` 7.12.0–8.3.0. **No
-fixed version exists** — 8.3.0 is unreleased, and the advisory's suggested
-remediation is 7.11.0, which reinstates two moderate advisories including an
-open redirect in `<Link>`/`useNavigate` that is genuinely reachable from a
-client-rendered SPA.
+`npm audit` reports one high advisory against `react-router`, counted twice
+because `react-router-dom` depends on it. The affected range is now
+**7.12.0–8.2.0**, and **8.3.0 has shipped and is fixed** — the version this
+document previously said to wait for.
 
-The decision is to stay on 7.18.2:
+Taking it was attempted in Phase 3 and rejected on evidence, not on preference:
+
+- `react-router-dom` does not exist above 7.18.2. v8 folded it into
+  `react-router`, so the upgrade means swapping the dependency and rewriting
+  ten import statements. That part is mechanical and fine.
+- `react-router@8.3.0` declares `peer react@">=19.2.7"`. OpeniWatch is on React
+  18.3.1, so taking the fix means a **React 18 → 19 major upgrade**, which pulls
+  in every Radix UI primitive, the testing library and the whole render path.
+
+That is a substantial migration with its own regression surface, and it is not
+staging-validation work. It should be planned and tested on its own branch.
+
+The interim decision remains 7.18.2, on the same reasoning as before:
 
 - the RSC CSRF path requires React Server Components or a react-router server
   runtime. OpeniWatch is a client-rendered SPA using `BrowserRouter`, so the
   vulnerable code is neither shipped nor reachable;
 - 7.18.2 fixes the open redirect and the SSR hydration issue, which were the
-  advisories with any conceivable applicability here.
+  advisories with any conceivable applicability here;
+- the audit's own `--force` remediation is 7.11.0, which *reinstates* that open
+  redirect in `<Link>`/`useNavigate`. Applying it would make the application
+  less safe, not more.
 
-**Re-check when 8.3.0 ships** and upgrade. `npm audit` will continue to report
-this until then; that is expected, not neglected.
+**Next step:** schedule the React 19 upgrade as its own piece of work, then take
+react-router 8.3.0 with it. `npm audit` will keep reporting 2 high until then —
+expected, and now with a concrete blocker rather than "no fix exists".
 
 ### Not resolved in this phase
 

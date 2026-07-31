@@ -69,8 +69,8 @@ Demo mode is labelled in the interface. It is never presented as a live backend.
 | `npm run lint` | ESLint over the whole repository |
 | `npm test` | Unit and integration tests (Vitest) |
 | `npm run test:watch` | Vitest in watch mode |
-| `npm run test:e2e` | Critical-workflow tests (Playwright) |
-| `npm run test:rls` | Apply the migrations to a throwaway PostgreSQL database and run the Row Level Security scenario tests |
+| `npm run test:e2e` | Critical-workflow and security tests (Playwright) |
+| `npm run test:rls` | Apply the migrations to a throwaway PostgreSQL database and run the Row Level Security and retention scenario tests |
 | `npm run seed:users` | Create the six development users in a Supabase project |
 | `npm run validate:staging` | Run the live-infrastructure acceptance suite against a deployed Supabase project |
 
@@ -140,15 +140,19 @@ Local demo mode needs nothing. To run against a real Supabase project:
 Restart `npm run dev`. The banner disappears and the app is running against
 Supabase Auth, PostgreSQL, Realtime and Edge Functions.
 
-> **Verification note.** The migrations and the Row Level Security policies are
-> verified against a real PostgreSQL instance by `npm run test:rls`, which
-> applies every migration twice (proving repeatability), checks the seeded pilot
-> data, and runs 28 role-based access scenarios.
+> **Verification note.** The migrations, the Row Level Security policies and the
+> retention functions are verified against a real PostgreSQL instance by
+> `npm run test:rls`, which applies every migration twice (proving
+> repeatability), checks the seeded pilot data, runs 28 role-based access
+> scenarios and 12 retention scenarios — the latter including a real deletion, a
+> purge correctly refused while retention is disabled, and a held record
+> surviving.
 >
 > The Supabase **client** path — Auth, Realtime, Edge Functions, web push and
 > the Netlify deployment — has **not** been exercised: the environment this was
 > built in has no network route to Supabase, Netlify or OneSignal, and no
 > credentials. Those integrations are labelled *implemented but not verified*.
+> No staging deployment exists.
 >
 > `npm run validate:staging` performs every one of those checks against a
 > deployed project and exits non-zero on failure. See
@@ -229,8 +233,8 @@ openiwatch/
 │   ├── migrations/        Twelve ordered, re-runnable SQL migrations
 │   ├── functions/         ingest-signal, dispatch-notifications,
 │   │                      escalate-unacknowledged, and shared modules
-│   └── tests/             RLS scenario tests (real PostgreSQL)
-├── e2e/                   Playwright critical-workflow tests
+│   └── tests/             RLS and retention scenario tests (real PostgreSQL)
+├── e2e/                   Playwright critical-workflow and security tests
 ├── scripts/               seed-users.mjs, test-rls.sh,
 │                       validate-staging.mjs, perf-dataset.sql
 └── docs/                  Architecture, data model, workflow, scoring,
@@ -256,7 +260,8 @@ openiwatch/
 | [`docs/ROLE_TEST_MATRIX.md`](docs/ROLE_TEST_MATRIX.md) | What each role may do, and how it is verified |
 | [`docs/ONESIGNAL_SETUP.md`](docs/ONESIGNAL_SETUP.md) | Web push setup and verification |
 | [`docs/RETENTION.md`](docs/RETENTION.md) | Retention policy, holds, dry runs and purging |
-| [`docs/PR_PHASE_1.md`](docs/PR_PHASE_1.md) | Pull request description |
+| [`docs/PR_PHASE_1.md`](docs/PR_PHASE_1.md) | Pull request description — Phase 1 |
+| [`docs/PR_PHASE_2.md`](docs/PR_PHASE_2.md) | Pull request description — staging validation |
 
 ---
 
