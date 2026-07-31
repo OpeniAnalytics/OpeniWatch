@@ -433,8 +433,11 @@ export function AlertDetailPage() {
         )}
       </Card>
 
+      {/* min-w-0 on the columns: a grid item defaults to min-width:auto and
+          would otherwise refuse to shrink below its widest content, pushing the
+          page into horizontal scroll on a phone. */}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           {/* Source ------------------------------------------------------- */}
           <SectionCard title="Full original source content">
             {signal ? (
@@ -697,7 +700,7 @@ export function AlertDetailPage() {
         </div>
 
         {/* Sidebar ------------------------------------------------------- */}
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <SectionCard title="Notification delivery history">
             {context.deliveries.length === 0 ? (
               <p className="text-sm text-muted-foreground">
@@ -810,7 +813,9 @@ export function AlertDetailPage() {
 
       {/* Sticky SOC action bar ------------------------------------------- */}
       {mayOperate && !closed && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 p-3 backdrop-blur">
+        // Offset past the navigation rail on desktop so the bar cannot cover
+        // the sidebar controls beneath it.
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 p-3 backdrop-blur md:left-60">
           <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-2">
             {!alert.acknowledgedAt && (
               <Button

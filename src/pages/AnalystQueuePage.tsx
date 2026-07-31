@@ -165,7 +165,9 @@ function ReviewPanel({ context }: { context: CandidateWithContext }) {
   const score = candidate.automatedScore
 
   return (
-    <div className="space-y-4">
+    // A labelled region: it names the panel for screen readers and keeps the
+    // review surface distinguishable from the list beside it.
+    <section aria-label="Candidate review" className="space-y-4">
       {error && (
         <div
           role="alert"
@@ -667,7 +669,7 @@ function ReviewPanel({ context }: { context: CandidateWithContext }) {
           </>
         )}
       </Card>
-    </div>
+    </section>
   )
 }
 
@@ -761,7 +763,7 @@ export function AnalystQueuePage() {
         />
       ) : (
         <div className="grid gap-4 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
-          <div className="space-y-2 lg:max-h-[calc(100vh-16rem)] lg:overflow-y-auto lg:pr-1">
+          <div className="min-w-0 space-y-2 lg:max-h-[calc(100vh-16rem)] lg:overflow-y-auto lg:pr-1">
             {list.map((context) => (
               <CandidateRow
                 key={context.candidate.id}

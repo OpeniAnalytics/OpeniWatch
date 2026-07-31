@@ -6,6 +6,7 @@ import { Card, EmptyState } from '@/components/ui/primitives'
 import { PageHeader } from '@/components/layout/AppShell'
 import { AlertCard } from '@/components/alerts/AlertCard'
 import { useData, useProviderQuery } from '@/app/DataContext'
+import { canValidate } from '@/data/workflow'
 
 /**
  * Operations Overview.
@@ -58,8 +59,13 @@ function StatTile({
 }
 
 export function OverviewPage() {
-  const { reference } = useData()
+  const { reference, session } = useData()
   const { data: summary, loading } = useProviderQuery((p) => p.getOperationsSummary(), [])
+
+  // The backlog figure is useful to everyone, but only roles that can work the
+  // queue get a link to it — otherwise the tile would offer a destination the
+  // navigation deliberately hides.
+  const mayOpenQueue = session ? canValidate(session.role) : false
 
   const profilesById = new Map((reference?.profiles ?? []).map((p) => [p.userId, p]))
 
@@ -106,8 +112,8 @@ export function OverviewPage() {
           label="Awaiting review"
           value={summary.awaitingReview}
           icon={ClipboardCheck}
-          hint="Candidate alerts in the analyst queue"
-          to="/queue"
+          hint="Candidate alerts awaiting analyst review"
+          {...(mayOpenQueue ? { to: '/queue' } : {})}
         />
       </div>
 
