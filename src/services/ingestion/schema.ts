@@ -43,8 +43,11 @@ export const signalAuthorInputSchema = z.object({
   sourceProfileMetadata: z.record(z.unknown()).default({}),
 })
 
+/** Media kinds accepted from a source. Mirrored in the Edge Function schema. */
+export const MEDIA_TYPES = ['image', 'video', 'document', 'audio'] as const
+
 export const signalMediaInputSchema = z.object({
-  mediaType: z.enum(['image', 'video', 'document', 'audio']),
+  mediaType: z.enum(MEDIA_TYPES),
   url: externalUrl,
   thumbnailUrl: externalUrl.nullish(),
   caption: z.string().max(1000).nullish(),

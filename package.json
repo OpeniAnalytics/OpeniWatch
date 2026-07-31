@@ -3,17 +3,18 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "OpeniWatch — location-based threat detection, validation, alerting, and reporting platform.",
+  "description": "OpeniWatch \u2014 location-based threat detection, validation, alerting, and reporting platform.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b --noEmit false --emitDeclarationOnly false && tsc --noEmit -p tsconfig.app.json",
+    "typecheck": "tsc -b --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "seed:local": "node scripts/print-seed-summary.mjs"
+    "seed:users": "node scripts/seed-users.mjs",
+    "test:rls": "bash scripts/test-rls.sh"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.1.4",

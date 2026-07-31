@@ -1,0 +1,44 @@
+# Netlify deployment for OpeniWatch.
+#
+# The application is a static single-page app. All server-side work — signal
+# ingestion, notification dispatch — runs in Supabase Edge Functions, so no
+# Netlify Functions are required and no secret is ever available to this build
+# beyond the VITE_-prefixed, browser-safe values.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# SPA fallback: client-side routes such as /alerts/<id> must serve index.html.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
+    # Source items are attacker-controlled text. The app renders them as text
+    # only and never with dangerouslySetInnerHTML, and this policy is the
+    # backstop. 'unsafe-inline' for styles is required by the CSS-variable
+    # theming; scripts are restricted to same-origin.
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+
+# Hashed build assets are immutable.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# The entry document must never be cached, so a deploy takes effect at once.
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
