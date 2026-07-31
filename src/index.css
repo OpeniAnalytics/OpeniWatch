@@ -1,0 +1,143 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * OpeniWatch visual system.
+ *
+ * Restrained slate and navy with Openi blue as the single accent. The palette
+ * is deliberately narrow so that severity colour carries meaning: if the
+ * interface used colour decoratively, a critical alert would stop standing out.
+ */
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 215 30% 16%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 30% 16%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 30% 16%;
+
+    /* Openi blue */
+    --primary: 216 82% 44%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 214 25% 94%;
+    --secondary-foreground: 215 32% 24%;
+
+    --muted: 214 24% 95%;
+    --muted-foreground: 215 16% 42%;
+
+    --accent: 214 30% 92%;
+    --accent-foreground: 215 32% 22%;
+
+    --destructive: 0 72% 44%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 20% 87%;
+    --input: 214 20% 87%;
+    --ring: 216 82% 44%;
+
+    /* Severity ramp: red, amber, blue-grey, slate. */
+    --severity-critical: 0 72% 44%;
+    --severity-high: 27 88% 42%;
+    --severity-moderate: 205 55% 38%;
+    --severity-informational: 215 14% 45%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    /* Deep navy rather than black: long SOC shifts, and pure black on an OLED
+       makes severity colour bloom. */
+    --background: 217 33% 10%;
+    --foreground: 213 31% 93%;
+
+    --card: 217 30% 13%;
+    --card-foreground: 213 31% 93%;
+
+    --popover: 217 30% 13%;
+    --popover-foreground: 213 31% 93%;
+
+    --primary: 214 92% 62%;
+    --primary-foreground: 217 40% 10%;
+
+    --secondary: 217 24% 19%;
+    --secondary-foreground: 213 31% 91%;
+
+    --muted: 217 24% 18%;
+    --muted-foreground: 215 18% 68%;
+
+    --accent: 217 24% 22%;
+    --accent-foreground: 213 31% 93%;
+
+    --destructive: 0 72% 56%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 217 22% 24%;
+    --input: 217 22% 26%;
+    --ring: 214 92% 62%;
+
+    --severity-critical: 0 79% 61%;
+    --severity-high: 30 92% 56%;
+    --severity-moderate: 202 70% 60%;
+    --severity-informational: 215 16% 65%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1,
+      'tnum' 1;
+  }
+
+  /* Tabular numerals everywhere figures are compared down a column. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Visible focus for keyboard users on every interactive control. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  /* Respect a user's reduced-motion preference: this is an operational tool. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* Skip link for keyboard navigation. */
+  .skip-link {
+    @apply absolute left-4 top-4 z-50 -translate-y-20 rounded-md bg-primary px-4 py-2 text-primary-foreground transition-transform focus:translate-y-0;
+  }
+
+  /* Left border strip encoding severity on alert cards. */
+  .severity-rail-critical {
+    box-shadow: inset 3px 0 0 0 hsl(var(--severity-critical));
+  }
+  .severity-rail-high {
+    box-shadow: inset 3px 0 0 0 hsl(var(--severity-high));
+  }
+  .severity-rail-moderate {
+    box-shadow: inset 3px 0 0 0 hsl(var(--severity-moderate));
+  }
+  .severity-rail-informational {
+    box-shadow: inset 3px 0 0 0 hsl(var(--severity-informational));
+  }
+}

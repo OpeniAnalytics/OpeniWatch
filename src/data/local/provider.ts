@@ -1,5 +1,5 @@
 import type { AppRole, Severity } from '@/domain/enums'
-import { ACTIVE_ALERT_STATUSES, SEVERITY_RANK, SEVERITIES } from '@/domain/enums'
+import { SEVERITY_RANK } from '@/domain/enums'
 import type {
   Alert,
   AlertWithContext,
@@ -12,11 +12,16 @@ import type {
   ScoringThreshold,
   Signal,
 } from '@/domain/types'
-import { average, secondsBetween, sortBy } from '@/lib/utils'
 import { ingestSignal, type PipelineResult } from '@/services/ingestion/pipeline'
 import type { ParsedSignalInput } from '@/services/ingestion/schema'
-import { textSimilarity } from '@/services/ingestion/normalize'
 import { dispatchAlert } from '@/services/notifications/dispatch'
+import {
+  buildAlertContext,
+  buildOperationsSummary,
+  buildReport,
+  selectAlerts,
+  selectCandidates,
+} from '../readModels'
 import { ORG_ID, PROGRAM_ID } from '@/data/seed/pilot'
 import { SEED_USERS } from '@/data/seed/users'
 import type {
@@ -47,7 +52,7 @@ import {
   type AssessmentEdit,
   type EscalationInput,
 } from '../workflow'
-import { SESSION_KEY, STORAGE_KEY, type WatchDatabase } from './database'
+import { DATABASE_VERSION, SESSION_KEY, STORAGE_KEY, type WatchDatabase } from './database'
 import { applyPipelineResult, recordDeliveries } from './mutations'
 import { buildSeededDatabase } from './seedDatabase'
 
@@ -99,7 +104,7 @@ export class LocalDataProvider implements DataProvider {
       if (raw) {
         try {
           const parsed = JSON.parse(raw) as WatchDatabase
-          if (parsed.version === (await import('./database')).DATABASE_VERSION) {
+          if (parsed.version === DATABASE_VERSION) {
             this.db = parsed
             return parsed
           }
@@ -229,213 +234,16 @@ export class LocalDataProvider implements DataProvider {
 
   // -- Read -----------------------------------------------------------------
 
-  private candidateContext(db: WatchDatabase, candidate: CandidateAlert): CandidateWithContext {
-    const signal = db.signals.find((s) => s.id === candidate.signalId)!
-    const author = db.authors.find((a) => a.id === signal?.authorId) ?? null
-    const media = db.media.filter((m) => m.signalId === candidate.signalId)
-    const location = db.locations.find((l) => l.id === candidate.locationId) ?? null
-    const assignment =
-      db.operationalAssignments.find((a) => a.id === candidate.operationalAssignmentId) ?? null
-    const categoryKey = candidate.analystCategoryKey ?? candidate.automatedCategoryKey
-    const category = db.categories.find((c) => c.key === categoryKey) ?? null
-
-    // Likely duplicates: other candidates whose signals overlap this one.
-    const duplicateSignalIds = new Set(
-      db.signalDuplicates
-        .filter((d) => d.signalId === candidate.signalId)
-        .map((d) => d.duplicateOfSignalId),
-    )
-    // Also look the other way: a later signal may have been flagged against this one.
-    for (const dup of db.signalDuplicates) {
-      if (dup.duplicateOfSignalId === candidate.signalId) duplicateSignalIds.add(dup.signalId)
-    }
-
-    const likelyDuplicates = [...duplicateSignalIds]
-      .map((signalId) => {
-        const otherCandidate = db.candidates.find((c) => c.signalId === signalId)
-        const otherSignal = db.signals.find((s) => s.id === signalId)
-        if (!otherCandidate || !otherSignal || !signal) return null
-        return {
-          candidate: otherCandidate,
-          signal: otherSignal,
-          similarity: textSimilarity(signal.originalText, otherSignal.originalText),
-        }
-      })
-      .filter((x): x is NonNullable<typeof x> => x !== null)
-      .sort((a, b) => b.similarity - a.similarity)
-
-    return { candidate, signal, author, media, location, assignment, category, likelyDuplicates }
-  }
-
   async listCandidates(filter: CandidateFilter = {}): Promise<CandidateWithContext[]> {
-    const db = await this.load()
-    let candidates = db.candidates
-
-    if (filter.statuses?.length) {
-      candidates = candidates.filter((c) => filter.statuses!.includes(c.status))
-    }
-    if (filter.severities?.length) {
-      candidates = candidates.filter((c) =>
-        filter.severities!.includes(c.analystSeverity ?? c.automatedSeverity),
-      )
-    }
-    if (filter.locationIds?.length) {
-      candidates = candidates.filter((c) => c.locationId && filter.locationIds!.includes(c.locationId))
-    }
-    if (filter.categoryKeys?.length) {
-      candidates = candidates.filter((c) =>
-        filter.categoryKeys!.includes(c.analystCategoryKey ?? c.automatedCategoryKey),
-      )
-    }
-
-    let contexts = candidates.map((c) => this.candidateContext(db, c))
-
-    if (filter.search?.trim()) {
-      const term = filter.search.trim().toLowerCase()
-      contexts = contexts.filter(
-        (c) =>
-          c.signal?.originalText.toLowerCase().includes(term) ||
-          c.location?.officialName.toLowerCase().includes(term) ||
-          c.author?.handle.toLowerCase().includes(term) ||
-          c.category?.label.toLowerCase().includes(term),
-      )
-    }
-
-    // Highest priority first, then newest. This is the analyst work order.
-    return contexts.sort((a, b) => {
-      const severityDelta =
-        SEVERITY_RANK[b.candidate.analystSeverity ?? b.candidate.automatedSeverity] -
-        SEVERITY_RANK[a.candidate.analystSeverity ?? a.candidate.automatedSeverity]
-      if (severityDelta !== 0) return severityDelta
-      const scoreDelta =
-        b.candidate.automatedScore.priorityScore - a.candidate.automatedScore.priorityScore
-      if (scoreDelta !== 0) return scoreDelta
-      return Date.parse(b.candidate.createdAt) - Date.parse(a.candidate.createdAt)
-    })
+    return selectCandidates(await this.load(), filter)
   }
 
   private alertContext(db: WatchDatabase, alert: Alert): AlertWithContext {
-    const signal = db.signals.find((s) => s.id === alert.signalId)!
-    const author = db.authors.find((a) => a.id === signal?.authorId) ?? null
-    const media = db.media.filter((m) => m.signalId === alert.signalId)
-    const location = db.locations.find((l) => l.id === alert.locationId)!
-    const assignment =
-      db.operationalAssignments.find((a) => a.id === alert.operationalAssignmentId) ?? null
-    const category = db.categories.find((c) => c.key === alert.categoryKey) ?? null
-    const candidate = db.candidates.find((c) => c.id === alert.candidateAlertId)!
-
-    const relatedSignalIds = new Set<string>()
-    for (const dup of db.signalDuplicates) {
-      if (dup.signalId === alert.signalId) relatedSignalIds.add(dup.duplicateOfSignalId)
-      if (dup.duplicateOfSignalId === alert.signalId) relatedSignalIds.add(dup.signalId)
-    }
-
-    const relatedSignals = [...relatedSignalIds]
-      .map((id) => {
-        const related = db.signals.find((s) => s.id === id)
-        if (!related) return null
-        const link = db.signalDuplicates.find(
-          (d) =>
-            (d.signalId === alert.signalId && d.duplicateOfSignalId === id) ||
-            (d.duplicateOfSignalId === alert.signalId && d.signalId === id),
-        )
-        return {
-          signal: related,
-          similarity: link?.similarity ?? 0,
-          method: link?.method ?? 'unknown',
-        }
-      })
-      .filter((x): x is NonNullable<typeof x> => x !== null)
-      .sort((a, b) => b.similarity - a.similarity)
-
-    // The audit trail for an alert covers both the alert and the candidate it
-    // came from, so validation appears in the alert's own history.
-    const auditTrail = db.auditEvents
-      .filter(
-        (e) =>
-          (e.entityType === 'alert' && e.entityId === alert.id) ||
-          (e.entityType === 'candidate_alert' && e.entityId === alert.candidateAlertId),
-      )
-      .sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt))
-
-    return {
-      alert,
-      signal,
-      author,
-      media,
-      location,
-      assignment,
-      category,
-      candidate,
-      evidence: db.alertEvidence.filter((e) => e.alertId === alert.id),
-      assignments: db.alertAssignments.filter((a) => a.alertId === alert.id),
-      acknowledgments: db.acknowledgments.filter((a) => a.alertId === alert.id),
-      escalations: db.escalations.filter((e) => e.alertId === alert.id),
-      dispositions: db.dispositions.filter((d) => d.alertId === alert.id),
-      comments: sortBy(
-        db.comments.filter((c) => c.alertId === alert.id),
-        (c) => c.createdAt,
-      ),
-      deliveries: db.deliveries.filter((d) => d.alertId === alert.id),
-      relatedSignals,
-      auditTrail,
-    }
+    return buildAlertContext(db, alert)
   }
 
   async listAlerts(filter: AlertFilter = {}): Promise<AlertWithContext[]> {
-    const db = await this.load()
-    let alerts = db.alerts
-
-    if (filter.statuses?.length) alerts = alerts.filter((a) => filter.statuses!.includes(a.status))
-    if (filter.severities?.length) {
-      alerts = alerts.filter((a) => filter.severities!.includes(a.severity))
-    }
-    if (filter.locationIds?.length) {
-      alerts = alerts.filter((a) => filter.locationIds!.includes(a.locationId))
-    }
-    if (filter.assignmentIds?.length) {
-      alerts = alerts.filter(
-        (a) => a.operationalAssignmentId && filter.assignmentIds!.includes(a.operationalAssignmentId),
-      )
-    }
-    if (filter.categoryKeys?.length) {
-      alerts = alerts.filter((a) => filter.categoryKeys!.includes(a.categoryKey))
-    }
-    if (filter.acknowledgement === 'acknowledged') {
-      alerts = alerts.filter((a) => a.acknowledgedAt !== null)
-    } else if (filter.acknowledgement === 'unacknowledged') {
-      alerts = alerts.filter((a) => a.acknowledgedAt === null)
-    }
-    if (filter.from) {
-      alerts = alerts.filter((a) => Date.parse(a.validatedAt) >= Date.parse(filter.from!))
-    }
-    if (filter.to) {
-      alerts = alerts.filter((a) => Date.parse(a.validatedAt) <= Date.parse(filter.to!))
-    }
-
-    let contexts = alerts.map((a) => this.alertContext(db, a))
-
-    if (filter.search?.trim()) {
-      const term = filter.search.trim().toLowerCase()
-      contexts = contexts.filter(
-        (c) =>
-          c.alert.title.toLowerCase().includes(term) ||
-          c.alert.summary.toLowerCase().includes(term) ||
-          c.signal?.originalText.toLowerCase().includes(term) ||
-          c.location?.officialName.toLowerCase().includes(term) ||
-          c.author?.handle.toLowerCase().includes(term),
-      )
-    }
-
-    return contexts.sort((a, b) => {
-      // Active before closed, then severity, then most recent.
-      const aActive = ACTIVE_ALERT_STATUSES.includes(a.alert.status) ? 1 : 0
-      const bActive = ACTIVE_ALERT_STATUSES.includes(b.alert.status) ? 1 : 0
-      if (aActive !== bActive) return bActive - aActive
-      const severityDelta = SEVERITY_RANK[b.alert.severity] - SEVERITY_RANK[a.alert.severity]
-      if (severityDelta !== 0) return severityDelta
-      return Date.parse(b.alert.validatedAt) - Date.parse(a.alert.validatedAt)
-    })
+    return selectAlerts(await this.load(), filter)
   }
 
   async getAlert(alertId: string): Promise<AlertWithContext | null> {
@@ -468,128 +276,11 @@ export class LocalDataProvider implements DataProvider {
   }
 
   async getOperationsSummary(): Promise<OperationsSummary> {
-    const db = await this.load()
-    const active = db.alerts.filter((a) => ACTIVE_ALERT_STATUSES.includes(a.status))
-
-    const activeByLocation = db.locations.map((location) => ({
-      location,
-      active: active.filter((a) => a.locationId === location.id).length,
-      total: db.alerts.filter((a) => a.locationId === location.id).length,
-    }))
-
-    // Detection-to-alert: publication of the source item to validation.
-    const latencies = db.alerts
-      .map((a) => secondsBetween(a.publishedAt, a.validatedAt))
-      .filter((v): v is number => v !== null)
-      .sort((a, b) => a - b)
-    const median =
-      latencies.length === 0
-        ? null
-        : latencies.length % 2 === 1
-          ? latencies[(latencies.length - 1) / 2]!
-          : (latencies[latencies.length / 2 - 1]! + latencies[latencies.length / 2]!) / 2
-
-    const liveFeed = active
-      .sort((a, b) => {
-        const severityDelta = SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity]
-        if (severityDelta !== 0) return severityDelta
-        return Date.parse(b.validatedAt) - Date.parse(a.validatedAt)
-      })
-      .slice(0, 8)
-      .map((a) => this.alertContext(db, a))
-
-    return {
-      openCritical: active.filter((a) => a.severity === 'critical').length,
-      openHigh: active.filter((a) => a.severity === 'high').length,
-      unacknowledged: active.filter((a) => a.acknowledgedAt === null).length,
-      awaitingReview: db.candidates.filter(
-        (c) => c.status === 'pending_review' || c.status === 'under_review',
-      ).length,
-      activeByLocation: activeByLocation.sort((a, b) => b.active - a.active),
-      recentActivity: [...db.auditEvents]
-        .sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt))
-        .slice(0, 12),
-      medianDetectionToAlertSeconds: median,
-      liveFeed,
-    }
+    return buildOperationsSummary(await this.load())
   }
 
   async getReport(range: ReportRange): Promise<ReportSummary> {
-    const db = await this.load()
-    const from = Date.parse(range.from)
-    const to = Date.parse(range.to)
-    const inRange = (iso: string) => {
-      const t = Date.parse(iso)
-      return t >= from && t <= to
-    }
-
-    const signals = db.signals.filter((s) => inRange(s.ingestedAt))
-    const candidates = db.candidates.filter((c) => inRange(c.createdAt))
-    const alerts = db.alerts.filter((a) => inRange(a.validatedAt))
-
-    const bySeverity = SEVERITIES.map((severity) => ({
-      severity,
-      count: alerts.filter((a) => a.severity === severity).length,
-    }))
-
-    const byLocation = db.locations
-      .map((location) => ({
-        locationId: location.id,
-        locationName: location.officialName,
-        count: alerts.filter((a) => a.locationId === location.id).length,
-      }))
-      .filter((row) => row.count > 0)
-      .sort((a, b) => b.count - a.count)
-
-    const byCategory = db.categories
-      .map((category) => ({
-        categoryKey: category.key,
-        label: category.label,
-        count: alerts.filter((a) => a.categoryKey === category.key).length,
-      }))
-      .filter((row) => row.count > 0)
-      .sort((a, b) => b.count - a.count)
-
-    // False positive rate: of everything decided in the window, the share that
-    // turned out not to be a real operational matter. Counted across both
-    // analyst rejections and SOC false-positive dispositions.
-    const decidedCandidates = candidates.filter((c) =>
-      ['validated', 'rejected', 'duplicate', 'suppressed'].includes(c.status),
-    )
-    const rejected = decidedCandidates.filter((c) => c.status === 'rejected').length
-    const falsePositiveAlerts = alerts.filter((a) => a.disposition === 'false_positive').length
-    const denominator = decidedCandidates.length
-    const falsePositiveRate =
-      denominator === 0 ? 0 : ((rejected + falsePositiveAlerts) / denominator) * 100
-
-    const validationSeconds = alerts
-      .map((a) => secondsBetween(a.detectedAt, a.validatedAt))
-      .filter((v): v is number => v !== null)
-    const notificationSeconds = alerts
-      .map((a) => secondsBetween(a.validatedAt, a.firstNotifiedAt))
-      .filter((v): v is number => v !== null)
-    const acknowledgmentSeconds = alerts
-      .map((a) => secondsBetween(a.firstNotifiedAt ?? a.validatedAt, a.acknowledgedAt))
-      .filter((v): v is number => v !== null)
-
-    return {
-      range,
-      signalsCollected: signals.length,
-      candidatesGenerated: candidates.length,
-      alertsValidated: alerts.length,
-      alertsBySeverity: bySeverity,
-      alertsByLocation: byLocation,
-      alertsByCategory: byCategory,
-      falsePositiveRate,
-      averageValidationSeconds: average(validationSeconds),
-      averageNotificationSeconds: average(notificationSeconds),
-      averageAcknowledgmentSeconds: average(acknowledgmentSeconds),
-      openIncidents: alerts.filter((a) => ACTIVE_ALERT_STATUSES.includes(a.status)).length,
-      escalatedIncidents: alerts.filter((a) => a.escalatedAt !== null).length,
-      items: alerts
-        .map((a) => this.alertContext(db, a))
-        .sort((a, b) => Date.parse(b.alert.validatedAt) - Date.parse(a.alert.validatedAt)),
-    }
+    return buildReport(await this.load(), range)
   }
 
   // -- Ingestion ------------------------------------------------------------
