@@ -52,10 +52,27 @@ const NON_OPERATIONAL_PATTERNS: Array<[RegExp, string]> = [
   [/\bmembership (?:renewal|fee)\b/i, 'discusses membership terms'],
 ]
 
-/** Language placing the event off the protected property. */
-const OFF_PROPERTY_PATTERNS: Array<[RegExp, string]> = [
-  [/\b(?:near|nearby|next to|across (?:the street|from)|down the (?:street|road)|outside the)\b/i, 'places the event near, not on, the property'],
-  [/\b(?:a few|several|\d+)\s+(?:blocks?|miles?|minutes?)\s+(?:from|away)\b/i, 'gives a distance from the location'],
+/**
+ * Language placing the event off the protected property.
+ *
+ * Two tiers. A stated distance is decisive and always applies. Vaguer "near
+ * the store" phrasing applies only when the text contains no on-property
+ * language — otherwise a report of something "in the parking lot near the fuel
+ * station" would be wrongly treated as off-site.
+ */
+const OFF_PROPERTY_DISTANCE_PATTERNS: Array<[RegExp, string]> = [
+  [
+    /\b(?:a few|several|couple of|one|two|three|four|five|\d+)\s+(?:blocks?|miles?|minutes?|streets?)\s+(?:from|away|down)\b/i,
+    'gives a distance from the location',
+  ],
+  [/\b(?:across the street|down the (?:street|road)|next door|up the road)\b/i, 'places the event on a neighbouring property'],
+]
+
+const OFF_PROPERTY_VAGUE_PATTERNS: Array<[RegExp, string]> = [
+  [
+    /\bnear(?:by)?\s+(?:the\s+)?(?:costco|store|warehouse|location|mall|shopping cent(?:er|re))\b/i,
+    'places the event near, not on, the property',
+  ],
 ]
 
 function scoreThreatSeverity(input: ScoringInput, factors: ScoreFactor[]): number {
@@ -301,7 +318,11 @@ function scoreOperationalRelevance(input: ScoringInput, factors: ScoreFactor[]):
   const text = input.signal.originalText
 
   // On-property language raises relevance.
-  if (/\b(?:inside|in the (?:store|warehouse|parking lot|lot)|at the (?:store|warehouse|entrance)|on the property)\b/i.test(text)) {
+  const onProperty =
+    /\b(?:inside|in the (?:store|warehouse|parking lot|lot)|at the (?:store|warehouse|entrance)|on the property)\b/i.test(
+      text,
+    )
+  if (onProperty) {
     value += 22
     factors.push({
       dimension: 'operationalRelevance',
@@ -310,16 +331,19 @@ function scoreOperationalRelevance(input: ScoringInput, factors: ScoreFactor[]):
     })
   }
 
-  for (const [pattern, description] of OFF_PROPERTY_PATTERNS) {
-    if (pattern.test(text)) {
-      value -= 18
-      factors.push({
-        dimension: 'operationalRelevance',
-        delta: -18,
-        reason: `Text ${description}, so the operational impact is indirect.`,
-      })
-      break
-    }
+  // A stated distance overrides on-property language; vague "near the store"
+  // phrasing does not, because it commonly appears inside on-site reports.
+  const offProperty =
+    OFF_PROPERTY_DISTANCE_PATTERNS.find(([pattern]) => pattern.test(text)) ??
+    (onProperty ? undefined : OFF_PROPERTY_VAGUE_PATTERNS.find(([pattern]) => pattern.test(text)))
+
+  if (offProperty) {
+    value -= 18
+    factors.push({
+      dimension: 'operationalRelevance',
+      delta: -18,
+      reason: `Text ${offProperty[1]}, so the operational impact is indirect.`,
+    })
   }
 
   // Customer-experience complaints are collected for awareness but must not

@@ -37,8 +37,11 @@ const CONTEMPORANEOUS_PATTERNS: Array<{ regex: RegExp; description: string }> = 
     description: 'author reports first-hand observation as it happened',
   },
   {
-    regex: /\b(right now|as i(?:'m| am) (?:typing|writing|filming)|happening now)\b/i,
-    description: 'author marks the report as contemporaneous',
+    // First-person only. Phrases like "right now" or "happening now" describe
+    // the EVENT, not the author, and must never be read as evidence of where
+    // the author is.
+    regex: /\bas i(?:'m| am)\s+(?:typing|writing|filming|recording|watching|standing)\b/i,
+    description: 'author describes writing or filming from the scene',
   },
 ]
 

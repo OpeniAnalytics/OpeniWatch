@@ -1,5 +1,3 @@
-import { canonicalizeText } from '@/services/ingestion/normalize'
-
 /**
  * Deterministic threat classification.
  *
