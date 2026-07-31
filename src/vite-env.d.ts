@@ -14,6 +14,8 @@ interface ImportMetaEnv {
   readonly VITE_ENABLE_SIMULATOR?: string
   readonly VITE_SPYGLASS_BASE_URL?: string
   readonly VITE_ONESIGNAL_APP_ID?: string
+  readonly VITE_ENABLE_SMS?: string
+  readonly VITE_ENVIRONMENT_LABEL?: string
 }
 
 interface ImportMeta {

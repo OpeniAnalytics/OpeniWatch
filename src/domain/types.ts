@@ -105,6 +105,22 @@ export interface ProtectedLocation extends AuditedRecord {
   /** How the coordinates were obtained. Phase 1 uses `seeded_approximate`. */
   geocodeSource: 'seeded_approximate' | 'geocoding_service' | 'manual' | 'ungeocoded'
   geocodedAt: Timestamp | null
+  /**
+   * How much trust the coordinates carry. Defaults to `unverified`; nothing in
+   * the application may present an unverified coordinate as confirmed.
+   */
+  coordinateVerificationStatus:
+    | 'unverified'
+    | 'geocoded'
+    | 'manually_verified'
+    | 'disputed'
+    | 'ambiguous'
+  coordinateVerificationMethod: string | null
+  coordinateVerifiedAt: Timestamp | null
+  coordinateVerifiedBy: Uuid | null
+  /** Radius of uncertainty in metres. Null means not assessed, not zero. */
+  coordinateUncertaintyMeters: number | null
+  addressAmbiguityNotes: string | null
   nearbyLandmarks: string[]
   storeFeatures: string[]
   notes: string | null
@@ -587,4 +603,46 @@ export interface AlertWithContext {
   deliveries: NotificationDelivery[]
   relatedSignals: Array<{ signal: Signal; similarity: number; method: string }>
   auditTrail: AuditEvent[]
+}
+
+// ---------------------------------------------------------------------------
+// Web push and organization controls
+// ---------------------------------------------------------------------------
+
+/**
+ * An opt-in web push registration.
+ *
+ * Holds only the provider's opaque subscription identifier plus a coarse device
+ * label the operator can recognise. No fingerprint, no location, no advertising
+ * identifier.
+ */
+export interface PushSubscription extends AuditedRecord {
+  organizationId: Uuid
+  userId: Uuid
+  provider: 'onesignal'
+  providerSubscriptionId: string
+  deviceLabel: string | null
+  isEnabled: boolean
+  /** Set when the provider reports the registration is gone. */
+  revokedAt: Timestamp | null
+  lastSeenAt: Timestamp
+}
+
+/** Organization-level operational controls. */
+export interface SystemSettings {
+  organizationId: Uuid
+  /**
+   * Emergency stop for every outbound channel. In-app delivery continues:
+   * silencing the application itself would hide alerts from the operators
+   * looking straight at it.
+   */
+  outboundNotificationsEnabled: boolean
+  outboundDisabledReason: string | null
+  outboundDisabledAt: Timestamp | null
+  outboundDisabledBy: Uuid | null
+  autoEscalationEnabled: boolean
+  /** Banner label, e.g. "Staging". Empty or null hides the banner. */
+  environmentLabel: string | null
+  createdAt: Timestamp
+  updatedAt: Timestamp
 }

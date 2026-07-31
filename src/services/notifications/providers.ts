@@ -94,13 +94,13 @@ export const oneSignalProvider: NotificationProvider = {
     if (!available) return unavailableResult('onesignal', reason)
 
     // The REST API key must never reach the browser. The Edge Function
-    // `dispatch-notifications` performs the call; from the client the request
-    // is queued as pending.
+    // `dispatch-notifications` performs the call and updates this row with the
+    // real provider outcome. From the client it is only ever `queued`.
     return {
-      status: 'pending',
+      status: 'queued',
       providerId: 'onesignal',
       providerMessageId: null,
-      detail: `Queued for server-side delivery to OneSignal app ${env.oneSignalAppId}. Step ${request.pathStep}.`,
+      detail: `Queued for server-side delivery via OneSignal (step ${request.pathStep}). The dispatcher records the provider response.`,
       isSimulated: false,
       deliveredAt: null,
     }
@@ -120,11 +120,20 @@ export const twilioProvider: NotificationProvider = {
   channels: ['sms'],
   availability: () => ({
     available: false,
-    reason:
-      'Twilio SMS is an interface only in Phase 1. Requires TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER, plus the server-side dispatcher described in docs/INTEGRATIONS.md.',
+    reason: env.enableSms
+      ? 'OPENIWATCH_ENABLE_SMS is set, but live SMS sending is not implemented in this phase. Consent capture, recipient verification and opt-out handling are prerequisites. No Twilio request is attempted.'
+      : 'SMS is disabled. Set OPENIWATCH_ENABLE_SMS=true and complete the prerequisites in docs/INTEGRATIONS.md before enabling. No Twilio request is attempted.',
   }),
   async send(): Promise<DeliveryResult> {
-    return unavailableResult('twilio', this.availability().reason)
+    // `disabled`, not `simulated`: nothing was sent and nothing pretended to be.
+    return {
+      status: 'disabled',
+      providerId: 'twilio',
+      providerMessageId: null,
+      detail: this.availability().reason,
+      isSimulated: false,
+      deliveredAt: null,
+    }
   },
 }
 

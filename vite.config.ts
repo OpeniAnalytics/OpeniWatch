@@ -16,5 +16,25 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
+    rollupOptions: {
+      output: {
+        /**
+         * Vendor chunking.
+         *
+         * These libraries change far less often than application code, so
+         * splitting them lets a redeploy reuse the cached copies. Supabase is
+         * separated because local demo mode never executes it — the browser
+         * still fetches it, but it parses in its own chunk rather than
+         * inflating the entry bundle.
+         */
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+          'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-slot', 'lucide-react'],
+        },
+      },
+    },
+    // The entry chunk is the thing an operator waits for; warn if it grows.
+    chunkSizeWarningLimit: 350,
   },
 })

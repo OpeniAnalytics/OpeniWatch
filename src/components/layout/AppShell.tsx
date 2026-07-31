@@ -50,6 +50,22 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/simulator', label: 'Simulator', icon: FlaskConical, requiresSimulator: true },
 ]
 
+/**
+ * Environment and mode banners.
+ *
+ * A staging deployment must never be mistaken for production: the label is
+ * always visible, at the top, on every screen.
+ */
+function EnvironmentBanner() {
+  const label = env.environmentLabel.trim()
+  if (!label) return null
+  return (
+    <div className="border-b border-primary/30 bg-primary/10 px-4 py-1.5 text-center text-xs font-medium text-primary">
+      {label} environment — not production. Data here may be reset at any time.
+    </div>
+  )
+}
+
 function ModeBanner({ mode }: { mode: 'supabase' | 'local-demo' }) {
   if (mode === 'supabase') return null
   return (
@@ -57,6 +73,41 @@ function ModeBanner({ mode }: { mode: 'supabase' | 'local-demo' }) {
       <strong className="font-semibold">Local demo mode.</strong> No Supabase credentials are
       configured, so data is stored in this browser and notification deliveries beyond in-app are
       simulated.
+    </div>
+  )
+}
+
+/** Shown whenever an administrator has stopped outbound notifications. */
+function KillSwitchBanner() {
+  const { provider, revision } = useData()
+  const [disabled, setDisabled] = React.useState<{ reason: string | null } | null>(null)
+
+  React.useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const settings = await provider.getSystemSettings()
+        if (!cancelled) {
+          setDisabled(
+            settings.outboundNotificationsEnabled
+              ? null
+              : { reason: settings.outboundDisabledReason },
+          )
+        }
+      } catch {
+        // Settings are advisory for the banner; a failure must not block the app.
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [provider, revision])
+
+  if (!disabled) return null
+  return (
+    <div className="border-b border-destructive/40 bg-destructive/10 px-4 py-1.5 text-center text-xs font-medium text-destructive">
+      Outbound notifications are switched off{disabled.reason ? `: ${disabled.reason}` : '.'} In-app
+      alerts continue; web push and SMS are not being attempted.
     </div>
   )
 }
@@ -91,7 +142,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   React.useEffect(() => setMobileOpen(false), [location.pathname])
 
   const items = NAV_ITEMS.filter((item) => {
-    if (item.requiresSimulator && !env.enableSimulator) return false
+    // The simulator writes signals, so it needs both the deployment flag and a
+    // role permitted to submit. The route enforces the same rule.
+    if (item.requiresSimulator) {
+      if (!env.enableSimulator) return false
+      if (session && !canValidate(session.role)) return false
+    }
     if (item.requiresValidation && session && !canValidate(session.role)) return false
     return true
   })
@@ -124,7 +180,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <a href="#main" className="skip-link">
         Skip to main content
       </a>
+      <EnvironmentBanner />
       <ModeBanner mode={provider.mode} />
+      <KillSwitchBanner />
 
       <div className="flex">
         {/* Desktop / tablet rail */}

@@ -71,6 +71,16 @@ const locationBase = {
   // production use.
   geocodeSource: 'seeded_approximate' as const,
   geocodedAt: null,
+  // Honest by default. These coordinates were derived from the published street
+  // address without a geocoding service; nothing may present them as verified.
+  // See supabase/migrations/0011_location_verification.sql and docs/PILOT_SETUP.md.
+  coordinateVerificationStatus: 'unverified' as const,
+  coordinateVerificationMethod:
+    'Seeded from the published street address without a geocoding service. Accurate to roughly the correct block; adequate for vicinity matching only.',
+  coordinateVerifiedAt: null,
+  coordinateVerifiedBy: null,
+  coordinateUncertaintyMeters: 250,
+  addressAmbiguityNotes: null,
   isActive: true,
   ...audited,
 }
@@ -268,9 +278,12 @@ export const seedAssignments: OperationalAssignment[] = assignmentSeeds.map(
 
 /** Property, parking and vicinity rings per location. */
 export const seedGeofences: LocationGeofence[] = seedLocations.flatMap((location, index) => {
+  // Property and parking rings are widened to 450 m while the coordinates are
+  // unverified (±250 m). A 200 m ring around a point that may be 250 m out is
+  // false precision, and would silently miss real matches.
   const rings: Array<[string, number, LocationGeofence['zone']]> = [
-    ['Property', 200, 'property'],
-    ['Parking area', 400, 'parking'],
+    ['Property', 450, 'property'],
+    ['Parking area', 450, 'parking'],
     ['Vicinity', 1600, 'vicinity'],
   ]
   return rings.map(([name, radiusMeters, zone], ringIndex) => ({

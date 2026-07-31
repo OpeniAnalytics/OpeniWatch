@@ -9,8 +9,10 @@ import type {
   EscalationRule,
   NotificationDelivery,
   NotificationSubscription,
+  PushSubscription,
   ScoringThreshold,
   Signal,
+  SystemSettings,
 } from '@/domain/types'
 import { ingestSignal, type PipelineResult } from '@/services/ingestion/pipeline'
 import type { ParsedSignalInput } from '@/services/ingestion/schema'
@@ -30,11 +32,14 @@ import type {
   ChangeEvent,
   DataProvider,
   OperationsSummary,
+  Page,
+  PageRequest,
   ReferenceData,
   ReportRange,
   ReportSummary,
   SessionUser,
 } from '../provider'
+import { resolvePage } from '../provider'
 import {
   WorkflowError,
   acknowledgeAlert,
@@ -235,7 +240,12 @@ export class LocalDataProvider implements DataProvider {
   // -- Read -----------------------------------------------------------------
 
   async listCandidates(filter: CandidateFilter = {}): Promise<CandidateWithContext[]> {
-    return selectCandidates(await this.load(), filter)
+    return (await this.listCandidatesPage(filter)).items
+  }
+
+  async listCandidatesPage(filter: CandidateFilter = {}): Promise<Page<CandidateWithContext>> {
+    const all = selectCandidates(await this.load(), filter)
+    return paginate(all, filter)
   }
 
   private alertContext(db: WatchDatabase, alert: Alert): AlertWithContext {
@@ -243,7 +253,12 @@ export class LocalDataProvider implements DataProvider {
   }
 
   async listAlerts(filter: AlertFilter = {}): Promise<AlertWithContext[]> {
-    return selectAlerts(await this.load(), filter)
+    return (await this.listAlertsPage(filter)).items
+  }
+
+  async listAlertsPage(filter: AlertFilter = {}): Promise<Page<AlertWithContext>> {
+    const all = selectAlerts(await this.load(), filter)
+    return paginate(all, filter)
   }
 
   async getAlert(alertId: string): Promise<AlertWithContext | null> {
@@ -692,6 +707,119 @@ export class LocalDataProvider implements DataProvider {
     this.emit({ type: 'reference' })
   }
 
+  // -- Web push -------------------------------------------------------------
+
+  async listPushSubscriptions(): Promise<PushSubscription[]> {
+    const db = await this.load()
+    const session = await this.getSession()
+    if (!session) return []
+    return db.pushSubscriptions.filter((p) => p.userId === session.userId)
+  }
+
+  async registerPushSubscription(input: {
+    providerSubscriptionId: string
+    deviceLabel: string
+  }): Promise<void> {
+    const db = await this.load()
+    const actor = await this.requireActor()
+    const ctx = this.ctx()
+
+    // Re-registering the same browser updates the existing row rather than
+    // accumulating duplicates.
+    const existing = db.pushSubscriptions.find(
+      (p) => p.providerSubscriptionId === input.providerSubscriptionId,
+    )
+    if (existing) {
+      db.pushSubscriptions = db.pushSubscriptions.map((p) =>
+        p.id === existing.id
+          ? { ...p, isEnabled: true, revokedAt: null, lastSeenAt: ctx.now, updatedAt: ctx.now }
+          : p,
+      )
+    } else {
+      db.pushSubscriptions.push({
+        id: newId(),
+        organizationId: actor.organizationId,
+        userId: actor.userId,
+        provider: 'onesignal',
+        providerSubscriptionId: input.providerSubscriptionId,
+        deviceLabel: input.deviceLabel,
+        isEnabled: true,
+        revokedAt: null,
+        lastSeenAt: ctx.now,
+        createdAt: ctx.now,
+        updatedAt: ctx.now,
+        createdBy: actor.userId,
+        updatedBy: actor.userId,
+      })
+    }
+    this.emit({ type: 'reference' })
+  }
+
+  async removePushSubscription(subscriptionId: string): Promise<void> {
+    const db = await this.load()
+    const actor = await this.requireActor()
+    // A user may only withdraw their own registration.
+    db.pushSubscriptions = db.pushSubscriptions.filter(
+      (p) => !(p.id === subscriptionId && p.userId === actor.userId),
+    )
+    this.emit({ type: 'reference' })
+  }
+
+  // -- Organization controls ------------------------------------------------
+
+  async getSystemSettings(): Promise<SystemSettings> {
+    return (await this.load()).systemSettings
+  }
+
+  async setOutboundNotificationsEnabled(enabled: boolean, reason: string | null): Promise<void> {
+    const db = await this.load()
+    const actor = await this.requireActor()
+    requireAdminister(actor, 'change the outbound notification kill switch')
+    const ctx = this.ctx()
+
+    db.systemSettings = {
+      ...db.systemSettings,
+      outboundNotificationsEnabled: enabled,
+      outboundDisabledReason: enabled ? null : reason,
+      outboundDisabledAt: enabled ? null : ctx.now,
+      outboundDisabledBy: enabled ? null : actor.userId,
+      updatedAt: ctx.now,
+    }
+    db.auditEvents.push({
+      id: newId(),
+      organizationId: actor.organizationId,
+      actorUserId: actor.userId,
+      actorRole: actor.role,
+      action: enabled ? 'outbound_notifications.enabled' : 'outbound_notifications.disabled',
+      entityType: 'system_settings',
+      entityId: actor.organizationId,
+      detail: { reason },
+      occurredAt: ctx.now,
+    })
+    this.emit({ type: 'reference' })
+  }
+
+  async setAutoEscalationEnabled(enabled: boolean): Promise<void> {
+    const db = await this.load()
+    const actor = await this.requireActor()
+    requireAdminister(actor, 'change automatic escalation')
+    const ctx = this.ctx()
+
+    db.systemSettings = { ...db.systemSettings, autoEscalationEnabled: enabled, updatedAt: ctx.now }
+    db.auditEvents.push({
+      id: newId(),
+      organizationId: actor.organizationId,
+      actorUserId: actor.userId,
+      actorRole: actor.role,
+      action: enabled ? 'auto_escalation.enabled' : 'auto_escalation.disabled',
+      entityType: 'system_settings',
+      entityId: actor.organizationId,
+      detail: {},
+      occurredAt: ctx.now,
+    })
+    this.emit({ type: 'reference' })
+  }
+
   // -- Demo utilities -------------------------------------------------------
 
   async resetDemoData(): Promise<void> {
@@ -704,4 +832,16 @@ export class LocalDataProvider implements DataProvider {
 /** Severity ordering helper reused by the interface. */
 export function severityOrder(a: Severity, b: Severity): number {
   return SEVERITY_RANK[b] - SEVERITY_RANK[a]
+}
+
+/**
+ * Applies the page window to an already-filtered, already-sorted list.
+ *
+ * The local provider holds the whole dataset in memory, so it can report an
+ * exact total. The Supabase provider gets its total from PostgREST instead.
+ */
+function paginate<T>(all: T[], page?: PageRequest): Page<T> {
+  const { limit, offset } = resolvePage(page)
+  const items = all.slice(offset, offset + limit)
+  return { items, total: all.length, hasMore: offset + items.length < all.length, limit, offset }
 }

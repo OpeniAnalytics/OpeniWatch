@@ -29,7 +29,20 @@
     # only and never with dangerouslySetInnerHTML, and this policy is the
     # backstop. 'unsafe-inline' for styles is required by the CSS-variable
     # theming; scripts are restricted to same-origin.
-    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+    # script-src allows the OneSignal SDK, which is loaded from their CDN only
+    # after an operator opts in to web push. worker-src covers the service
+    # worker OneSignal registers. connect-src covers Supabase REST, Realtime
+    # (wss) and the OneSignal API.
+    Content-Security-Policy = "default-src 'self'; script-src 'self' https://cdn.onesignal.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.onesignal.com https://onesignal.com; frame-src https://*.onesignal.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+
+# The OneSignal service worker must be served from the application origin with
+# a root scope, or push registration fails.
+[[headers]]
+  for = "/OneSignalSDKWorker.js"
+  [headers.values]
+    Service-Worker-Allowed = "/"
+    Cache-Control = "no-cache"
+    Content-Type = "application/javascript"
 
 # Hashed build assets are immutable.
 [[headers]]

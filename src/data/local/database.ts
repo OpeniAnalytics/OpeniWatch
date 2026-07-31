@@ -26,6 +26,8 @@ import type {
   SignalDuplicate,
   SignalLocationMatch,
   SignalMedia,
+  PushSubscription,
+  SystemSettings,
   ThreatCategory,
   UserRole,
 } from '@/domain/types'
@@ -69,8 +71,10 @@ export interface WatchDatabase {
   subscriptions: NotificationSubscription[]
   deliveries: NotificationDelivery[]
   auditEvents: AuditEvent[]
+  pushSubscriptions: PushSubscription[]
+  systemSettings: SystemSettings
 }
 
-export const DATABASE_VERSION = 3
-export const STORAGE_KEY = 'openiwatch.demo.database.v3'
+export const DATABASE_VERSION = 4
+export const STORAGE_KEY = 'openiwatch.demo.database.v4'
 export const SESSION_KEY = 'openiwatch.demo.session'

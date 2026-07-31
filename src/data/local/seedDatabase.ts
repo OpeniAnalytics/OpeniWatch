@@ -196,6 +196,18 @@ function emptyDatabase(): WatchDatabase {
     subscriptions: [...seedSubscriptions],
     deliveries: [],
     auditEvents: [],
+    pushSubscriptions: [],
+    systemSettings: {
+      organizationId: ORG_ID,
+      outboundNotificationsEnabled: true,
+      outboundDisabledReason: null,
+      outboundDisabledAt: null,
+      outboundDisabledBy: null,
+      autoEscalationEnabled: true,
+      environmentLabel: null,
+      createdAt: '2026-01-06T09:00:00.000Z',
+      updatedAt: '2026-01-06T09:00:00.000Z',
+    },
   }
 }
 

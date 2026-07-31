@@ -14,6 +14,14 @@ interface BrowserEnv {
   enableSimulator: boolean
   spyglassBaseUrl: string
   oneSignalAppId: string
+  /**
+   * Mirrors the server-side OPENIWATCH_ENABLE_SMS flag so the interface can say
+   * why SMS is off. It does NOT enable sending — only the Edge Function can do
+   * that, and it requires its own server-side flag.
+   */
+  enableSms: boolean
+  /** Label shown in the environment banner, e.g. "Staging". Empty hides it. */
+  environmentLabel: string
 }
 
 function readString(key: string, fallback = ''): string {
@@ -29,6 +37,8 @@ export const env: BrowserEnv = {
   enableSimulator: readString('VITE_ENABLE_SIMULATOR', 'true') !== 'false',
   spyglassBaseUrl: readString('VITE_SPYGLASS_BASE_URL'),
   oneSignalAppId: readString('VITE_ONESIGNAL_APP_ID'),
+  enableSms: readString('VITE_ENABLE_SMS', 'false') === 'true',
+  environmentLabel: readString('VITE_ENVIRONMENT_LABEL'),
 }
 
 /**

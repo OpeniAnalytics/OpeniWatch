@@ -28,3 +28,7 @@ pnpm-debug.log*
 # Supabase local stack
 supabase/.branches
 supabase/.temp
+
+# Local PostgreSQL test clusters (scripts/test-rls.sh, scripts/perf-dataset.sql)
+pgdata/
+*-pgdata/

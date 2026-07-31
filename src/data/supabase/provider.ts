@@ -9,8 +9,10 @@ import type {
   EscalationRule,
   NotificationDelivery,
   NotificationSubscription,
+  PushSubscription,
   ScoringThreshold,
   Signal,
+  SystemSettings,
 } from '@/domain/types'
 import { ingestSignal, type PipelineResult } from '@/services/ingestion/pipeline'
 import type { ParsedSignalInput } from '@/services/ingestion/schema'
@@ -21,16 +23,17 @@ import type {
   ChangeEvent,
   DataProvider,
   OperationsSummary,
+  Page,
   ReferenceData,
   ReportRange,
   ReportSummary,
   SessionUser,
 } from '../provider'
+import { resolvePage } from '../provider'
 import {
   buildAlertContext,
   buildOperationsSummary,
   buildReport,
-  selectAlerts,
   selectCandidates,
 } from '../readModels'
 import {
@@ -105,6 +108,7 @@ const SNAPSHOT_TABLES = [
   ['notification_subscriptions', 'subscriptions'],
   ['notification_deliveries', 'deliveries'],
   ['audit_events', 'auditEvents'],
+  ['push_subscriptions', 'pushSubscriptions'],
 ] as const
 
 export class SupabaseDataProvider implements DataProvider {
@@ -256,6 +260,19 @@ export class SupabaseDataProvider implements DataProvider {
       })
 
       db.version = DATABASE_VERSION
+      // The snapshot type carries systemSettings; the table is read separately
+      // by getSystemSettings(), so give the snapshot a permissive default.
+      db.systemSettings = db.systemSettings ?? {
+        organizationId: '',
+        outboundNotificationsEnabled: true,
+        outboundDisabledReason: null,
+        outboundDisabledAt: null,
+        outboundDisabledBy: null,
+        autoEscalationEnabled: true,
+        environmentLabel: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
       const snapshot = db as unknown as WatchDatabase
 
       // Candidate and alert JSON columns arrive flat; rebuild the nested
@@ -328,11 +345,99 @@ export class SupabaseDataProvider implements DataProvider {
   // -- Read -----------------------------------------------------------------
 
   async listCandidates(filter: CandidateFilter = {}): Promise<CandidateWithContext[]> {
-    return selectCandidates(await this.load(), filter)
+    return (await this.listCandidatesPage(filter)).items
   }
 
   async listAlerts(filter: AlertFilter = {}): Promise<AlertWithContext[]> {
-    return selectAlerts(await this.load(), filter)
+    return (await this.listAlertsPage(filter)).items
+  }
+
+  /**
+   * Server-side filtered and paged.
+   *
+   * PostgREST applies the filters, the ordering and the range, and returns an
+   * exact count, so the browser receives one page rather than the table. The
+   * matching rows' context (signal, author, location, evidence…) is then
+   * hydrated from the reference snapshot and per-page child queries.
+   */
+  async listAlertsPage(filter: AlertFilter = {}): Promise<Page<AlertWithContext>> {
+    const { limit, offset } = resolvePage(filter)
+    const db = await this.load()
+
+    let query = this.client
+      .from('alerts')
+      .select('id', { count: 'exact' })
+      .order('validated_at', { ascending: false })
+      .range(offset, offset + limit - 1)
+
+    if (filter.statuses?.length) query = query.in('status', filter.statuses)
+    if (filter.severities?.length) query = query.in('severity', filter.severities)
+    if (filter.locationIds?.length) query = query.in('location_id', filter.locationIds)
+    if (filter.assignmentIds?.length) {
+      query = query.in('operational_assignment_id', filter.assignmentIds)
+    }
+    if (filter.categoryKeys?.length) query = query.in('category_key', filter.categoryKeys)
+    if (filter.acknowledgement === 'acknowledged') query = query.not('acknowledged_at', 'is', null)
+    if (filter.acknowledgement === 'unacknowledged') query = query.is('acknowledged_at', null)
+    if (filter.from) query = query.gte('validated_at', filter.from)
+    if (filter.to) query = query.lte('validated_at', filter.to)
+    // Search runs server-side against the indexed title and summary. Source
+    // text search would need a full-text index; see docs/PRODUCTION_READINESS.md.
+    if (filter.search?.trim()) {
+      const term = filter.search.trim().replace(/[%,()]/g, ' ')
+      query = query.or(`title.ilike.%${term}%,summary.ilike.%${term}%`)
+    }
+
+    const { data, error, count } = await query
+    if (error) throw new WorkflowError(`alerts: ${error.message}`)
+
+    const ids = new Set((data ?? []).map((row) => (row as { id: string }).id))
+    const items = db.alerts
+      .filter((a) => ids.has(a.id))
+      .sort((a, b) => Date.parse(b.validatedAt) - Date.parse(a.validatedAt))
+      .map((a) => buildAlertContext(db, a))
+
+    return {
+      items,
+      total: count ?? null,
+      hasMore: count === null ? items.length === limit : offset + items.length < count,
+      limit,
+      offset,
+    }
+  }
+
+  async listCandidatesPage(filter: CandidateFilter = {}): Promise<Page<CandidateWithContext>> {
+    const { limit, offset } = resolvePage(filter)
+    const db = await this.load()
+
+    let query = this.client
+      .from('candidate_alerts')
+      .select('id', { count: 'exact' })
+      .order('automated_priority_score', { ascending: false })
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
+
+    if (filter.statuses?.length) query = query.in('status', filter.statuses)
+    if (filter.locationIds?.length) query = query.in('location_id', filter.locationIds)
+
+    const { data, error, count } = await query
+    if (error) throw new WorkflowError(`candidate_alerts: ${error.message}`)
+
+    const ids = new Set((data ?? []).map((row) => (row as { id: string }).id))
+    // Severity, category and free-text filters need the joined signal and the
+    // analyst override, so they are applied to the fetched page.
+    const items = selectCandidates(
+      { ...db, candidates: db.candidates.filter((c) => ids.has(c.id)) },
+      { ...filter, limit: undefined, offset: undefined },
+    )
+
+    return {
+      items,
+      total: count ?? null,
+      hasMore: count === null ? items.length === limit : offset + items.length < count,
+      limit,
+      offset,
+    }
   }
 
   async getAlert(alertId: string): Promise<AlertWithContext | null> {
@@ -811,6 +916,124 @@ export class SupabaseDataProvider implements DataProvider {
       .from('notification_subscriptions')
       .delete()
       .eq('id', subscriptionId)
+    if (error) throw new WorkflowError(error.message)
+    this.emit({ type: 'reference' })
+  }
+
+  // -- Web push -------------------------------------------------------------
+
+  async listPushSubscriptions(): Promise<PushSubscription[]> {
+    const session = await this.getSession()
+    if (!session) return []
+    const { data, error } = await this.client
+      .from('push_subscriptions')
+      .select('*')
+      .eq('user_id', session.userId)
+      .order('created_at', { ascending: false })
+    if (error) throw new WorkflowError(error.message)
+    return (data ?? []).map((row) => toCamel<PushSubscription>(row as Record<string, unknown>))
+  }
+
+  async registerPushSubscription(input: {
+    providerSubscriptionId: string
+    deviceLabel: string
+  }): Promise<void> {
+    const actor = await this.requireActor()
+    // Upsert on the provider id: re-registering the same browser refreshes the
+    // row rather than accumulating duplicates.
+    const { error } = await this.client.from('push_subscriptions').upsert(
+      toSnake({
+        organizationId: actor.organizationId,
+        userId: actor.userId,
+        provider: 'onesignal',
+        providerSubscriptionId: input.providerSubscriptionId,
+        deviceLabel: input.deviceLabel,
+        isEnabled: true,
+        revokedAt: null,
+        lastSeenAt: new Date().toISOString(),
+      }),
+      { onConflict: 'provider,provider_subscription_id' },
+    )
+    if (error) throw new WorkflowError(error.message)
+    this.emit({ type: 'reference' })
+  }
+
+  async removePushSubscription(subscriptionId: string): Promise<void> {
+    const { error } = await this.client
+      .from('push_subscriptions')
+      .delete()
+      .eq('id', subscriptionId)
+    if (error) throw new WorkflowError(error.message)
+    this.emit({ type: 'reference' })
+  }
+
+  // -- Organization controls ------------------------------------------------
+
+  async getSystemSettings(): Promise<SystemSettings> {
+    const actor = await this.requireActor()
+    const { data, error } = await this.client
+      .from('system_settings')
+      .select('*')
+      .eq('organization_id', actor.organizationId)
+      .maybeSingle()
+    if (error) throw new WorkflowError(error.message)
+    if (!data) {
+      return {
+        organizationId: actor.organizationId,
+        outboundNotificationsEnabled: true,
+        outboundDisabledReason: null,
+        outboundDisabledAt: null,
+        outboundDisabledBy: null,
+        autoEscalationEnabled: true,
+        environmentLabel: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+    }
+    return toCamel<SystemSettings>(data as Record<string, unknown>)
+  }
+
+  async setOutboundNotificationsEnabled(enabled: boolean, reason: string | null): Promise<void> {
+    const actor = await this.requireActor()
+    requireAdminister(actor, 'change the outbound notification kill switch')
+    const now = new Date().toISOString()
+
+    const { error } = await this.client
+      .from('system_settings')
+      .update(
+        toSnake({
+          outboundNotificationsEnabled: enabled,
+          outboundDisabledReason: enabled ? null : reason,
+          outboundDisabledAt: enabled ? null : now,
+          outboundDisabledBy: enabled ? null : actor.userId,
+        }),
+      )
+      .eq('organization_id', actor.organizationId)
+    if (error) throw new WorkflowError(error.message)
+
+    await this.writeAudit([
+      {
+        id: crypto.randomUUID(),
+        organizationId: actor.organizationId,
+        actorUserId: actor.userId,
+        actorRole: actor.role,
+        action: enabled ? 'outbound_notifications.enabled' : 'outbound_notifications.disabled',
+        entityType: 'system_settings',
+        entityId: actor.organizationId,
+        detail: { reason },
+        occurredAt: now,
+      },
+    ])
+    this.emit({ type: 'reference' })
+  }
+
+  async setAutoEscalationEnabled(enabled: boolean): Promise<void> {
+    const actor = await this.requireActor()
+    requireAdminister(actor, 'change automatic escalation')
+    const { error } = await this.client
+      .from('system_settings')
+      .update({ auto_escalation_enabled: enabled })
+      .eq('organization_id', actor.organizationId)
     if (error) throw new WorkflowError(error.message)
     this.emit({ type: 'reference' })
   }

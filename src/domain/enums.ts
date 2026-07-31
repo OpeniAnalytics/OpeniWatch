@@ -229,23 +229,46 @@ export const DELIVERY_CHANNEL_LABELS: Record<DeliveryChannel, string> = {
   webhook: 'Webhook',
 }
 
+/**
+ * Delivery status vocabulary.
+ *
+ * `sent` and `delivered` are deliberately distinct. A provider accepting a
+ * notification is `sent`; `delivered` requires a confirmed device receipt.
+ * Nothing may report `delivered` on the strength of provider acceptance alone.
+ */
 export const DELIVERY_STATUSES = [
+  'queued',
   'pending',
   'sent',
   'delivered',
   'failed',
   'skipped',
   'simulated',
+  'disabled',
 ] as const
 export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number]
 
 export const DELIVERY_STATUS_LABELS: Record<DeliveryStatus, string> = {
-  pending: 'Pending',
-  sent: 'Sent',
-  delivered: 'Delivered',
+  queued: 'Queued',
+  pending: 'Sending',
+  sent: 'Accepted by provider',
+  delivered: 'Delivered to device',
   failed: 'Failed',
   skipped: 'Skipped',
   simulated: 'Simulated',
+  disabled: 'Disabled',
+}
+
+/** Longer wording for the alert detail view, where the distinction matters. */
+export const DELIVERY_STATUS_DESCRIPTIONS: Record<DeliveryStatus, string> = {
+  queued: 'Accepted by OpeniWatch and waiting for the dispatcher.',
+  pending: 'Handed to the provider; awaiting a response.',
+  sent: 'The provider accepted it. This is not proof it reached the device.',
+  delivered: 'The provider confirmed the device received it.',
+  failed: 'The attempt failed. See the detail for the reason.',
+  skipped: 'No attempt was made — usually a missing configuration or registration.',
+  simulated: 'Recorded only. No live provider was configured, so nothing was sent.',
+  disabled: 'The channel is switched off. No request was attempted.',
 }
 
 export const ESCALATION_LEVELS = [

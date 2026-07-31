@@ -3,6 +3,8 @@ import type { AlertStatus, DeliveryChannel } from '@/domain/enums'
 import type {
   Alert,
   AlertWithContext,
+  PushSubscription,
+  SystemSettings,
   AuditEvent,
   CandidateWithContext,
   EscalationRule,
@@ -66,7 +68,34 @@ export interface ReferenceData {
   subscriptions: NotificationSubscription[]
 }
 
-export interface CandidateFilter {
+/** Server-side paging. Omitted means "the provider's default page". */
+export interface PageRequest {
+  limit?: number
+  offset?: number
+}
+
+/** A bounded result set plus enough information to render pagination. */
+export interface Page<T> {
+  items: T[]
+  /** Total matching rows, or null when the provider cannot count cheaply. */
+  total: number | null
+  hasMore: boolean
+  limit: number
+  offset: number
+}
+
+/** Default page size. Chosen so an operator sees a screenful without scrolling far. */
+export const DEFAULT_PAGE_SIZE = 50
+/** Hard ceiling. No caller may pull an unbounded result set into the browser. */
+export const MAX_PAGE_SIZE = 200
+
+export function resolvePage(page?: PageRequest): { limit: number; offset: number } {
+  const limit = Math.min(Math.max(1, page?.limit ?? DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE)
+  const offset = Math.max(0, page?.offset ?? 0)
+  return { limit, offset }
+}
+
+export interface CandidateFilter extends PageRequest {
   statuses?: CandidateStatus[]
   severities?: Severity[]
   locationIds?: string[]
@@ -74,7 +103,7 @@ export interface CandidateFilter {
   search?: string
 }
 
-export interface AlertFilter {
+export interface AlertFilter extends PageRequest {
   statuses?: AlertStatus[]
   severities?: Severity[]
   locationIds?: string[]
@@ -145,8 +174,14 @@ export interface DataProvider {
   getReferenceData(): Promise<ReferenceData>
 
   // -- Read -----------------------------------------------------------------
+  /**
+   * Bounded by design. Both providers cap the result at MAX_PAGE_SIZE; use
+   * `listAlertsPage` when the caller needs a total or a next-page indicator.
+   */
   listCandidates(filter?: CandidateFilter): Promise<CandidateWithContext[]>
   listAlerts(filter?: AlertFilter): Promise<AlertWithContext[]>
+  listCandidatesPage(filter?: CandidateFilter): Promise<Page<CandidateWithContext>>
+  listAlertsPage(filter?: AlertFilter): Promise<Page<AlertWithContext>>
   getAlert(alertId: string): Promise<AlertWithContext | null>
   getOperationsSummary(): Promise<OperationsSummary>
   getReport(range: ReportRange): Promise<ReportSummary>
@@ -177,6 +212,15 @@ export interface DataProvider {
   addComment(alertId: string, body: string, kind: 'operational_note' | 'analyst_note'): Promise<void>
   markNotificationRead(deliveryId: string): Promise<void>
 
+  // -- Web push -------------------------------------------------------------
+  listPushSubscriptions(): Promise<PushSubscription[]>
+  /** Records an opt-in. Called only after the browser grants permission. */
+  registerPushSubscription(input: {
+    providerSubscriptionId: string
+    deviceLabel: string
+  }): Promise<void>
+  removePushSubscription(subscriptionId: string): Promise<void>
+
   // -- Administration -------------------------------------------------------
   setUserRole(userId: string, role: AppRole): Promise<void>
   setCategoryActive(categoryKey: string, isActive: boolean): Promise<void>
@@ -185,6 +229,10 @@ export interface DataProvider {
   upsertSubscription(subscription: Partial<NotificationSubscription> & { id?: string }): Promise<void>
   deleteSubscription(subscriptionId: string): Promise<void>
   setLocationActive(locationId: string, isActive: boolean): Promise<void>
+  /** Emergency stop for every outbound channel. In-app delivery continues. */
+  setOutboundNotificationsEnabled(enabled: boolean, reason: string | null): Promise<void>
+  setAutoEscalationEnabled(enabled: boolean): Promise<void>
+  getSystemSettings(): Promise<SystemSettings>
 
   // -- Realtime -------------------------------------------------------------
   subscribe(listener: (event: ChangeEvent) => void): () => void
