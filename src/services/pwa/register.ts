@@ -1,19 +1,22 @@
 /**
- * Service worker registration and update handling.
+ * Application service worker registration and update handling.
  *
- * OpeniWatch registers ONE worker, `/OneSignalSDKWorker.js`, at the root scope.
- * That single file carries both the OneSignal push handler and the offline
- * shell — see the comment at the top of it for why they cannot be separate
- * files. Registering here (rather than leaving it to the OneSignal SDK) means
- * the shell works and the application is installable for operators who never
- * opt in to push; the SDK reuses this registration when they later do.
+ * OpeniWatch runs TWO workers, separated by scope so they never contend for a
+ * single registration:
+ *
+ *   /sw.js                  scope "/"            this file registers it
+ *   /OneSignalSDKWorker.js  scope "/onesignal/"  the OneSignal SDK registers it
+ *
+ * The OneSignal file is left byte-for-byte as the vendor supplies it, and is
+ * registered by the SDK on opt-in — not here. See
+ * `src/services/notifications/pushClient.ts`.
  *
  * Nothing here requests notification permission. Installation and push are kept
  * apart on purpose: an install prompt that also asks to send notifications gets
  * both refused.
  */
 
-const WORKER_PATH = '/OneSignalSDKWorker.js'
+const WORKER_PATH = '/sw.js'
 
 export type UpdateListener = (activate: () => void) => void
 
@@ -38,6 +41,23 @@ export function isServiceWorkerSupported(): boolean {
 export async function registerServiceWorker(onUpdateReady?: UpdateListener): Promise<void> {
   if (!isServiceWorkerSupported()) return
 
+  /*
+   * Whether this page was already under a worker's control BEFORE registering.
+   *
+   * This distinguishes the two reasons `controllerchange` fires:
+   *
+   *   - no previous controller: a first install calling `clients.claim()`.
+   *     The page is already running the current build. Reloading here would
+   *     make every first visit reload itself, which reads as a flicker or a
+   *     crash and would throw away anything typed into a form.
+   *   - a previous controller: a replacement worker has taken over, so the
+   *     page really is running superseded code and should reload.
+   *
+   * Captured before `register()`, because registering can install and claim
+   * within the same tick.
+   */
+  const hadController = Boolean(navigator.serviceWorker.controller)
+
   try {
     registration = await navigator.serviceWorker.register(WORKER_PATH, { scope: '/' })
   } catch {
@@ -46,10 +66,10 @@ export async function registerServiceWorker(onUpdateReady?: UpdateListener): Pro
     return
   }
 
-  // Reload once, when the replacement worker actually takes control.
+  // Reload once, and only when a replacement worker takes control.
   let reloading = false
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloading) return
+    if (!hadController || reloading) return
     reloading = true
     window.location.reload()
   })

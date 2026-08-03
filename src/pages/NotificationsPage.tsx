@@ -3,6 +3,7 @@ import { DELIVERY_CHANNEL_LABELS, DELIVERY_STATUS_LABELS } from '@/domain/enums'
 import { Badge, Button, Card, EmptyState } from '@/components/ui/primitives'
 import { SimulatedBadge } from '@/components/alerts/badges'
 import { PageHeader } from '@/components/layout/AppShell'
+import { PushRegistrationPanel } from '@/components/notifications/PushRegistrationPanel'
 import { formatDateTime } from '@/lib/datetime'
 import { useData, useProviderQuery } from '@/app/DataContext'
 
@@ -40,6 +41,8 @@ export function NotificationsPage() {
           ) : undefined
         }
       />
+
+      <PushRegistrationPanel />
 
       {loading && list.length === 0 ? (
         <p className="text-sm text-readable-muted">Loading notifications…</p>

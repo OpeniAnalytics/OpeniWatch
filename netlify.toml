@@ -12,6 +12,28 @@
 [build.environment]
   NODE_VERSION = "20"
 
+# Service workers must never be rewritten to index.html by the SPA fallback
+# below. A worker served as HTML fails to register, and the failure reads as
+# "push does not work" rather than as a routing problem. These come first
+# because Netlify applies the first matching rule.
+[[redirects]]
+  from = "/OneSignalSDKWorker.js"
+  to = "/OneSignalSDKWorker.js"
+  status = 200
+  force = false
+
+[[redirects]]
+  from = "/sw.js"
+  to = "/sw.js"
+  status = 200
+  force = false
+
+[[redirects]]
+  from = "/manifest.webmanifest"
+  to = "/manifest.webmanifest"
+  status = 200
+  force = false
+
 # SPA fallback: client-side routes such as /alerts/<id> must serve index.html.
 [[redirects]]
   from = "/*"
@@ -35,15 +57,28 @@
     # (wss) and the OneSignal API.
     Content-Security-Policy = "default-src 'self'; script-src 'self' https://cdn.onesignal.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.onesignal.com https://onesignal.com; frame-src https://*.onesignal.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
 
-# The service worker must be served from the application origin with a root
-# scope, or both push registration and PWA installation fail.
+# Two service workers, separated by scope so they never contend for a single
+# registration:
 #
-# This single file carries BOTH the OneSignal push handler and the offline
-# shell. A scope may have only one active registration, and OneSignal requires
-# this path, so the two behaviours share the file rather than fighting over "/".
-# See the comment at the top of public/OneSignalSDKWorker.js.
+#   /sw.js                   scope "/"           application shell + install
+#   /OneSignalSDKWorker.js   scope "/onesignal/" vendor push worker, verbatim
+#
+# Both must be served from the application origin, unauthenticated, without a
+# redirect, and as JavaScript. The SPA fallback below would otherwise rewrite
+# them to index.html, which is why each has an explicit passthrough.
+
 [[headers]]
   for = "/OneSignalSDKWorker.js"
+  [headers.values]
+    # Not strictly needed for the "/onesignal/" scope, which is narrower than
+    # this file's own path allows. Kept so the scope can be widened later
+    # without a header change being the thing that silently breaks push.
+    Service-Worker-Allowed = "/"
+    Cache-Control = "no-cache"
+    Content-Type = "application/javascript"
+
+[[headers]]
+  for = "/sw.js"
   [headers.values]
     Service-Worker-Allowed = "/"
     Cache-Control = "no-cache"

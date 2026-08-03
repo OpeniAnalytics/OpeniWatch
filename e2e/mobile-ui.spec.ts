@@ -429,18 +429,39 @@ test.describe('Progressive web application', () => {
     expect(viewport).not.toContain('maximum-scale')
   })
 
-  test('the service worker is a single file shared with OneSignal', async ({ request }) => {
-    const response = await request.get('/OneSignalSDKWorker.js')
-    expect(response.ok()).toBe(true)
+  test('the OneSignal worker is served verbatim, unauthenticated and unredirected', async ({
+    request,
+  }) => {
+    const response = await request.get('/OneSignalSDKWorker.js', { maxRedirects: 0 })
+
+    expect(response.status()).toBe(200)
+    // A redirect or an auth challenge here fails service worker registration,
+    // and the symptom reads as "push is broken" rather than as a routing fault.
+    expect(response.headers()['location']).toBeUndefined()
+    expect(response.headers()['www-authenticate']).toBeUndefined()
+    // Registration requires a JavaScript MIME type; both spellings qualify.
+    expect(response.headers()['content-type']).toMatch(/(application|text)\/javascript/)
+
+    // Exactly what OneSignal shipped — one line, nothing appended.
     const body = await response.text()
+    expect(body.trim()).toBe(
+      'importScripts("https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js");',
+    )
+    // The SPA fallback must not have rewritten it to the entry document.
+    expect(body).not.toContain('<!doctype html')
+  })
 
-    // Push handling and the offline shell live in the same worker, because a
-    // scope may have only one registration.
-    expect(body).toContain('OneSignalSDK.sw.js')
-    expect(body).toContain('addEventListener')
+  test('the application worker is separate and caches no operational data', async ({ request }) => {
+    const response = await request.get('/sw.js', { maxRedirects: 0 })
+    expect(response.status()).toBe(200)
+    expect(response.headers()['content-type']).toMatch(/(application|text)\/javascript/)
 
-    // Operational data must never be cached for offline viewing.
+    const body = await response.text()
+    // Two workers, separated by scope. Push handling does not live here.
+    expect(body).not.toContain('OneSignalSDK.sw.js')
+    // Operational data is never cached for offline viewing.
     expect(body).toContain('/rest/')
     expect(body).toContain('/auth/')
+    expect(body).toContain('/realtime/')
   })
 })
