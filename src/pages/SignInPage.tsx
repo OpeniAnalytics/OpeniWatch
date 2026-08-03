@@ -43,7 +43,7 @@ export function SignInPage() {
           </div>
           <div>
             <h1 className="text-lg font-semibold tracking-tight">OpeniWatch</h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-readable-muted">
               Location-based threat detection, validation, alerting and reporting.
             </p>
           </div>
@@ -61,7 +61,7 @@ export function SignInPage() {
         {isDemo ? (
           <Card className="p-4">
             <h2 className="font-medium">Choose a role</h2>
-            <p className="mb-4 mt-1 text-sm text-muted-foreground">
+            <p className="mb-4 mt-1 text-sm text-readable-muted">
               No Supabase credentials are configured, so OpeniWatch is running in local demo mode
               with the seeded pilot data. There is no authentication server and no password — pick
               the role you want to demonstrate. Each role has genuinely different permissions.
@@ -77,11 +77,11 @@ export function SignInPage() {
                   >
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
                       <span className="font-medium">{account.fullName}</span>
-                      <span className="text-xs font-medium text-primary">
+                      <span className="text-[13px] font-medium text-primary">
                         {ROLE_LABELS[account.role]}
                       </span>
                     </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{account.purpose}</p>
+                    <p className="mt-0.5 text-[13px] text-readable-muted">{account.purpose}</p>
                   </button>
                 </li>
               ))}

@@ -42,7 +42,7 @@ export function NotificationsPage() {
       />
 
       {loading && list.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Loading notifications…</p>
+        <p className="text-sm text-readable-muted">Loading notifications…</p>
       ) : list.length === 0 ? (
         <EmptyState
           title="No notifications"
@@ -73,13 +73,13 @@ export function NotificationsPage() {
                   </Badge>
                   {delivery.isSimulated && <SimulatedBadge />}
                   {!delivery.readAt && <Badge>Unread</Badge>}
-                  <span className="ml-auto text-xs text-muted-foreground">
+                  <span className="ml-auto text-[13px] text-readable-muted">
                     {formatDateTime(delivery.attemptedAt)}
                   </span>
                 </div>
 
                 {delivery.detail && (
-                  <p className="mt-1.5 text-sm text-muted-foreground">{delivery.detail}</p>
+                  <p className="mt-1.5 text-sm text-readable-muted">{delivery.detail}</p>
                 )}
 
                 <div className="mt-2 flex flex-wrap gap-2">

@@ -15,6 +15,7 @@
     "test:e2e": "playwright test",
     "seed:users": "node scripts/seed-users.mjs",
     "test:rls": "bash scripts/test-rls.sh",
+    "generate:icons": "node scripts/generate-icons.mjs",
     "validate:staging": "node scripts/validate-staging.mjs",
     "perf:dataset": "psql -f scripts/perf-dataset.sql"
   },

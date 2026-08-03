@@ -21,9 +21,9 @@ import type { ReportSummary } from '@/data/provider'
 function Metric({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <Card className="p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-[13px] font-medium uppercase tracking-wide text-readable-muted">{label}</p>
       <p className="tabular mt-1.5 text-2xl font-semibold leading-none">{value}</p>
-      {hint && <p className="mt-1.5 text-xs text-muted-foreground">{hint}</p>}
+      {hint && <p className="mt-1.5 text-[13px] text-readable-muted">{hint}</p>}
     </Card>
   )
 }
@@ -36,7 +36,7 @@ function DistributionBar({
   total: number
 }) {
   if (rows.length === 0) {
-    return <p className="text-sm text-muted-foreground">No alerts in this period.</p>
+    return <p className="text-sm text-readable-muted">No alerts in this period.</p>
   }
   return (
     <ul className="space-y-2">
@@ -62,10 +62,13 @@ function ReportView({ report }: { report: ReportSummary }) {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-readable-muted">
           {formatDate(report.range.from)} – {formatDate(report.range.to)}
         </p>
-        <div className="flex gap-2">
+        {/* Wraps: two export buttons at the 16px mobile type size do not fit
+            side by side on a 320px screen, and a nowrap flex row pushed the
+            whole document 56px wider than the viewport. */}
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -184,13 +187,13 @@ function ReportView({ report }: { report: ReportSummary }) {
       <Card className="mt-4">
         <h2 className="p-4 pb-3 font-semibold">Report items</h2>
         {report.items.length === 0 ? (
-          <p className="px-4 pb-4 text-sm text-muted-foreground">
+          <p className="px-4 pb-4 text-sm text-readable-muted">
             No alerts were validated in this period.
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[52rem] text-sm">
-              <thead className="border-y bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <thead className="border-y bg-muted/50 text-left text-[13px] uppercase tracking-wide text-readable-muted">
                 <tr>
                   <th className="px-4 py-2 font-medium">Validated</th>
                   <th className="px-4 py-2 font-medium">Severity</th>
@@ -257,7 +260,7 @@ export function ReportingPage() {
                   'rounded px-3 py-1.5 text-sm font-medium capitalize transition-colors',
                   period === value
                     ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-foreground',
+                    : 'text-readable-muted hover:text-foreground',
                 )}
               >
                 {value}
@@ -268,7 +271,7 @@ export function ReportingPage() {
       />
 
       {loading && !report ? (
-        <p className="text-sm text-muted-foreground">Building report…</p>
+        <p className="text-sm text-readable-muted">Building report…</p>
       ) : report ? (
         <ReportView report={report} />
       ) : (

@@ -38,24 +38,39 @@ function StatTile({
     warning: 'text-[hsl(var(--severity-high))]',
   }[tone]
 
+  /*
+   * Padding is trimmed on the narrowest phones before any type size is, because
+   * a smaller number is harder to read and a tighter card is not. The label
+   * runs above the value on mobile so neither has to wrap mid-phrase.
+   */
   const body = (
-    <Card className="h-full p-4 transition-colors hover:border-primary/40">
+    <Card className="h-full p-3.5 transition-colors hover:border-primary/40 sm:p-4">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-        <Icon className={cn('size-4 shrink-0', toneClasses)} />
+        <p className="text-[13px] font-semibold uppercase leading-tight tracking-wide text-readable-muted">
+          {label}
+        </p>
+        <Icon className={cn('size-5 shrink-0', toneClasses)} />
       </div>
-      <p className={cn('tabular mt-2 text-3xl font-semibold leading-none', toneClasses)}>{value}</p>
-      {hint && <p className="mt-1.5 text-xs text-muted-foreground">{hint}</p>}
+      <p className={cn('tabular mt-2 text-4xl font-semibold leading-none sm:text-3xl', toneClasses)}>
+        {value}
+      </p>
+      {hint && <p className="mt-2 text-[15px] leading-snug text-readable-muted">{hint}</p>}
     </Card>
   )
 
   return to ? (
-    <Link to={to} className="block">
+    // The whole card is the target, and it clears 44px comfortably.
+    <Link to={to} className="block rounded-lg focus-visible:ring-2">
       {body}
     </Link>
   ) : (
     body
   )
+}
+
+/** Section heading. Large enough to structure a phone screen, not a label. */
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return <h2 className="mb-3 text-[19px] font-semibold tracking-tight sm:text-lg">{children}</h2>
 }
 
 export function OverviewPage() {
@@ -70,7 +85,7 @@ export function OverviewPage() {
   const profilesById = new Map((reference?.profiles ?? []).map((p) => [p.userId, p]))
 
   if (loading && !summary) {
-    return <p className="text-sm text-muted-foreground">Loading operations overview…</p>
+    return <p className="text-readable-muted">Loading operations overview…</p>
   }
   if (!summary) return null
 
@@ -83,7 +98,13 @@ export function OverviewPage() {
         description={`${monitored} monitored locations · ${reference?.assignments.length ?? 0} operational assignments`}
       />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {/*
+        One column below 380px. Two 44px-tall numbers side by side on a 320px
+        screen forces "Unacknowledged" to wrap to three lines and the value to
+        shrink; a single column keeps both legible. `min-w-0` stops grid items
+        from refusing to shrink, which is what produced horizontal overflow.
+      */}
+      <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 lg:grid-cols-4">
         <StatTile
           label="Open critical"
           value={summary.openCritical}
@@ -119,9 +140,7 @@ export function OverviewPage() {
 
       <div className="mt-5 grid gap-5 lg:grid-cols-3">
         <section className="lg:col-span-2">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Live validated alerts
-          </h2>
+          <SectionTitle>Live validated alerts</SectionTitle>
           {summary.liveFeed.length === 0 ? (
             <EmptyState
               title="No active alerts"
@@ -151,14 +170,12 @@ export function OverviewPage() {
 
         <div className="space-y-5">
           <section>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Detection to alert
-            </h2>
+            <SectionTitle>Detection to alert</SectionTitle>
             <Card className="p-4">
-              <p className="tabular text-2xl font-semibold">
+              <p className="tabular text-3xl font-semibold sm:text-2xl">
                 {formatDuration(summary.medianDetectionToAlertSeconds)}
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1.5 text-[15px] leading-relaxed text-readable-muted">
                 Median time from source publication to analyst validation, across every alert on
                 record.
               </p>
@@ -166,9 +183,7 @@ export function OverviewPage() {
           </section>
 
           <section>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Alerts by monitored location
-            </h2>
+            <SectionTitle>Alerts by monitored location</SectionTitle>
             <Card>
               <ul className="divide-y">
                 {summary.activeByLocation.map((row) => (
@@ -177,8 +192,10 @@ export function OverviewPage() {
                     className="flex items-center justify-between gap-3 px-4 py-2.5"
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{row.location.officialName}</p>
-                      <p className="truncate text-xs text-muted-foreground">
+                      <p className="truncate text-[17px] font-medium sm:text-[15px]">
+                        {row.location.officialName}
+                      </p>
+                      <p className="truncate text-[15px] text-readable-muted">
                         {row.location.city}, {row.location.state}
                         {!row.location.isActive && ' · monitoring disabled'}
                       </p>
@@ -186,13 +203,13 @@ export function OverviewPage() {
                     <div className="shrink-0 text-right">
                       <p
                         className={cn(
-                          'tabular text-sm font-semibold',
+                          'tabular text-[17px] font-semibold sm:text-[15px]',
                           row.active > 0 && 'text-[hsl(var(--severity-high))]',
                         )}
                       >
                         {row.active}
                       </p>
-                      <p className="tabular text-xs text-muted-foreground">{row.total} total</p>
+                      <p className="tabular text-[15px] text-readable-muted">{row.total} total</p>
                     </div>
                   </li>
                 ))}
@@ -201,27 +218,25 @@ export function OverviewPage() {
           </section>
 
           <section>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Recent operational activity
-            </h2>
+            <SectionTitle>Recent operational activity</SectionTitle>
             <Card>
               {summary.recentActivity.length === 0 ? (
-                <p className="p-4 text-sm text-muted-foreground">No activity recorded yet.</p>
+                <p className="p-4 text-[15px] text-readable-muted">No activity recorded yet.</p>
               ) : (
                 <ul className="divide-y">
                   {summary.recentActivity.map((event) => (
-                    <li key={event.id} className="px-4 py-2.5">
-                      <p className="text-sm">
+                    <li key={event.id} className="px-4 py-3">
+                      <p className="text-[17px] sm:text-[15px]">
                         <span className="font-medium">
                           {event.actorUserId
                             ? (profilesById.get(event.actorUserId)?.fullName ?? 'Unknown user')
                             : 'System'}
                         </span>{' '}
-                        <span className="text-muted-foreground">
+                        <span className="text-readable-muted">
                           {event.action.replace(/[._]/g, ' ')}
                         </span>
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-[15px] text-readable-muted">
                         {formatRelative(event.occurredAt)}
                       </p>
                     </li>

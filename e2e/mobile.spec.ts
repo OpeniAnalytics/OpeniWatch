@@ -16,12 +16,20 @@ test('a SOC manager can acknowledge an alert on a phone', async ({ page }) => {
   await page.getByRole('button', { name: /Kai Brennan/i }).click()
   await expect(page.getByRole('heading', { name: /operations overview/i })).toBeVisible()
 
-  // The rail collapses on mobile; navigation is behind the menu button.
-  await page.getByRole('button', { name: /toggle navigation/i }).click()
-  await page.getByRole('link', { name: /alert feed/i }).first().click()
+  // The rail collapses on mobile; navigation is behind the menu button, which
+  // now opens a viewport-fixed drawer rather than an inline panel.
+  await page.getByRole('button', { name: /open navigation/i }).click()
+  const drawer = page.getByRole('dialog', { name: 'OpeniWatch' })
+  await expect(drawer).toBeVisible()
+  await drawer.getByRole('link', { name: /alert feed/i }).click()
   await expect(page.getByRole('heading', { name: /alert feed/i })).toBeVisible()
 
+  // Alerts are visible immediately on a phone; the filters are collapsed behind
+  // a toggle so seven dropdowns do not occupy the whole first screen.
+  await expect(page.locator('article').first()).toBeVisible()
+
   // Filter to the alerts that still need attention.
+  await page.getByRole('button', { name: /^filters/i }).click()
   await page.getByLabel('Acknowledgment').selectOption('unacknowledged')
   await expect(page.locator('article').first()).toBeVisible()
 

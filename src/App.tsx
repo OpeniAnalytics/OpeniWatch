@@ -5,8 +5,9 @@ import { ThemeProvider } from '@/app/ThemeContext'
 import { AppShell } from '@/components/layout/AppShell'
 import { SignInPage } from '@/pages/SignInPage'
 import { OverviewPage } from '@/pages/OverviewPage'
+import { ConfigurationErrorPage } from '@/pages/ConfigurationErrorPage'
 import { canValidate } from '@/data/workflow'
-import { env } from '@/lib/env'
+import { configuration, env, simulatorEnabled } from '@/lib/env'
 
 /**
  * Routing.
@@ -47,7 +48,7 @@ const SimulatorPage = lazy(() =>
 
 function RouteFallback() {
   return (
-    <p className="text-sm text-muted-foreground" role="status">
+    <p className="text-sm text-readable-muted" role="status">
       Loading…
     </p>
   )
@@ -72,7 +73,7 @@ function RequireRole({
   return (
     <div className="rounded-lg border border-dashed p-6">
       <p className="font-medium">This screen is not available to your role</p>
-      <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+      <p className="mt-1 max-w-prose text-sm text-readable-muted">
         {requirement} You are signed in as {session?.role.replace(/_/g, ' ')}. The database enforces
         the same restriction, so nothing here is hidden that you could otherwise reach.
       </p>
@@ -86,7 +87,7 @@ function AuthenticatedRoutes() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p className="text-sm text-muted-foreground">Loading OpeniWatch…</p>
+        <p className="text-sm text-readable-muted">Loading OpeniWatch…</p>
       </div>
     )
   }
@@ -94,9 +95,10 @@ function AuthenticatedRoutes() {
   if (!session) return <SignInPage />
 
   const mayValidate = canValidate(session.role)
-  // The simulator writes signals. It is off unless the deployment enables it,
-  // and even then only roles that may submit signals can reach it.
-  const maySimulate = env.enableSimulator && mayValidate
+  // The simulator writes signals. Three conditions, all required: never in
+  // production, the deployment flag must be on, and the role must be permitted
+  // to submit. Demo mode grants none of these by itself.
+  const maySimulate = simulatorEnabled && mayValidate
 
   return (
     <AppShell>
@@ -126,9 +128,11 @@ function AuthenticatedRoutes() {
               <RequireRole
                 allowed={maySimulate}
                 requirement={
-                  env.enableSimulator
-                    ? 'The simulator writes signals, so it is limited to analysts and program administrators.'
-                    : 'The signal simulator is disabled in this deployment (VITE_ENABLE_SIMULATOR=false).'
+                  !simulatorEnabled && env.deployment === 'production'
+                    ? 'The signal simulator is permanently unavailable in production.'
+                    : simulatorEnabled
+                      ? 'The simulator writes signals, so it is limited to analysts and program administrators.'
+                      : 'The signal simulator is disabled in this deployment (VITE_ENABLE_SIMULATOR is not "true").'
                 }
               >
                 <SimulatorPage />
@@ -143,6 +147,18 @@ function AuthenticatedRoutes() {
 }
 
 export default function App() {
+  // Checked before anything else mounts. `DataProviderContext` constructs the
+  // data provider on first render, so a blocked configuration has to short
+  // circuit above it — otherwise the browser-local demo provider would be
+  // built, seeded and running before any screen could refuse to show it.
+  if (configuration.status === 'blocked') {
+    return (
+      <ThemeProvider>
+        <ConfigurationErrorPage configuration={configuration} />
+      </ThemeProvider>
+    )
+  }
+
   return (
     <ThemeProvider>
       <DataProviderContext>

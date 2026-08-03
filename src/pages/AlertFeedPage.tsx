@@ -8,6 +8,8 @@ import {
   type AlertStatus,
   type Severity,
 } from '@/domain/enums'
+import { ChevronDown, SlidersHorizontal } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Button, Card, EmptyState, Input, Label, Select } from '@/components/ui/primitives'
 import { AlertCard } from '@/components/alerts/AlertCard'
 import { PageHeader } from '@/components/layout/AppShell'
@@ -22,6 +24,9 @@ import { useData, useProviderQuery } from '@/app/DataContext'
 export function AlertFeedPage() {
   const { reference } = useData()
   const [params, setParams] = useSearchParams()
+  // Collapsed by default on phones; the `sm:block` above keeps it open on
+  // anything larger regardless of this value.
+  const [filtersOpen, setFiltersOpen] = React.useState(false)
 
   const severity = (params.get('severity') ?? '') as Severity | ''
   const status = (params.get('status') ?? '') as AlertStatus | ''
@@ -66,9 +71,18 @@ export function AlertFeedPage() {
 
   const profilesById = new Map((reference?.profiles ?? []).map((p) => [p.userId, p]))
   const list = alerts ?? []
-  const hasFilters = [severity, status, locationId, categoryKey, acknowledgement, from, to, search].some(
-    Boolean,
-  )
+  const activeFilters = [
+    severity,
+    status,
+    locationId,
+    categoryKey,
+    acknowledgement,
+    from,
+    to,
+    search,
+  ].filter(Boolean)
+  const hasFilters = activeFilters.length > 0
+  const activeFilterCount = activeFilters.length
 
   return (
     <div>
@@ -91,7 +105,42 @@ export function AlertFeedPage() {
         }
       />
 
-      <Card className="mb-4 p-3">
+      {/*
+        Filters collapse on mobile.
+
+        Seven controls ahead of the list meant an operator opening the feed on a
+        phone saw a screen of dropdowns and no alerts at all — the one thing
+        they came for was below the fold. They stay expanded from `sm` up, where
+        the grid costs one or two rows and buries nothing.
+
+        The toggle reports how many filters are active, so a collapsed panel can
+        never hide the fact that the list is filtered.
+      */}
+      <div className="mb-3 sm:hidden">
+        <Button
+          variant="outline"
+          className="touch-target w-full justify-between"
+          aria-expanded={filtersOpen}
+          aria-controls="alert-filters"
+          onClick={() => setFiltersOpen((open) => !open)}
+        >
+          <span className="inline-flex items-center gap-2">
+            <SlidersHorizontal className="size-5" aria-hidden="true" />
+            Filters
+            {activeFilterCount > 0 && (
+              <span className="rounded-full bg-primary px-2 py-0.5 text-[13px] font-semibold text-primary-foreground">
+                {activeFilterCount}
+              </span>
+            )}
+          </span>
+          <ChevronDown
+            className={cn('size-5 transition-transform', filtersOpen && 'rotate-180')}
+            aria-hidden="true"
+          />
+        </Button>
+      </div>
+
+      <Card id="alert-filters" className={cn('mb-4 p-3', !filtersOpen && 'hidden sm:block')}>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-1">
             <Label htmlFor="f-severity">Severity</Label>
@@ -189,7 +238,7 @@ export function AlertFeedPage() {
         </div>
       </Card>
 
-      <p className="mb-3 text-sm text-muted-foreground" aria-live="polite">
+      <p className="mb-3 text-sm text-readable-muted" aria-live="polite">
         {loading && list.length === 0
           ? 'Loading alerts…'
           : `${list.length} alert${list.length === 1 ? '' : 's'}`}

@@ -163,6 +163,41 @@ Executed on this branch: 7 tests, all passing, against a production build.
 
 ---
 
+## Configuration fails closed
+
+A deployed OpeniWatch that cannot reach its backend refuses to start. It does
+not substitute browser-local demo data.
+
+This is a security property, not a convenience one. The alternative — which is
+what happened on a real staging deployment — is an application that looks
+entirely normal, accepts acknowledgments, and shows a location as monitored,
+while being backed by records visible to nobody and lost when storage is
+cleared. An operator has no way to tell the difference from the interface.
+
+- Missing or unusable `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` in staging
+  or production produce a blocking screen. No provider, no seed, no session, no
+  service worker.
+- `VITE_ENABLE_LOCAL_DEMO` is ignored outside development, so demo mode cannot
+  be switched on in a deployed environment even deliberately.
+- The screen names missing **variables**, never values — no fragment, no length,
+  no hash, no encoding. It renders before authentication, so anyone can reach it.
+- The simulator is refused unconditionally in production, and demo mode never
+  grants access to it.
+
+Full rules and tests: [`CONFIGURATION.md`](CONFIGURATION.md).
+
+### Offline caching
+
+The service worker caches the application shell only. Alerts, signals, raw
+source text, author information, Supabase responses, tokens and session state
+are never cached — the fetch handler refuses non-GET requests, cross-origin
+responses, and anything under `/rest/`, `/auth/`, `/functions/` or `/realtime/`.
+
+An operator offline sees the shell and a failure to load data, not a stale alert
+list they might act on believing it current. See [`MOBILE.md`](MOBILE.md).
+
+---
+
 ## Privacy and intelligence standards
 
 OpeniWatch processes publicly available information. These rules are structural,

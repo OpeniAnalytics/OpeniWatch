@@ -66,7 +66,7 @@ export function AdminPage() {
     }
   }
 
-  if (!reference) return <p className="text-sm text-muted-foreground">Loading configuration…</p>
+  if (!reference) return <p className="text-sm text-readable-muted">Loading configuration…</p>
 
   return (
     <div>
@@ -95,7 +95,7 @@ export function AdminPage() {
             className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
               tab === item
                 ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
+                : 'border-transparent text-readable-muted hover:text-foreground'
             }`}
           >
             {item}
@@ -108,7 +108,7 @@ export function AdminPage() {
         <Card>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[40rem] text-sm">
-              <thead className="border-b bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <thead className="border-b bg-muted/50 text-left text-[13px] uppercase tracking-wide text-readable-muted">
                 <tr>
                   <th className="px-4 py-2 font-medium">Name</th>
                   <th className="px-4 py-2 font-medium">Email</th>
@@ -120,8 +120,8 @@ export function AdminPage() {
                 {reference.profiles.map((profile) => (
                   <tr key={profile.userId}>
                     <td className="px-4 py-2 font-medium">{profile.fullName}</td>
-                    <td className="px-4 py-2 text-muted-foreground">{profile.email}</td>
-                    <td className="px-4 py-2 text-muted-foreground">{profile.title ?? '—'}</td>
+                    <td className="px-4 py-2 text-readable-muted">{profile.email}</td>
+                    <td className="px-4 py-2 text-readable-muted">{profile.title ?? '—'}</td>
                     <td className="px-4 py-2">
                       <Select
                         aria-label={`Role for ${profile.fullName}`}
@@ -152,7 +152,7 @@ export function AdminPage() {
       {/* ---------------------------------------------------------------- */}
       {tab === 'Threat categories' && (
         <Card>
-          <p className="border-b px-4 py-3 text-sm text-muted-foreground">
+          <p className="border-b px-4 py-3 text-sm text-readable-muted">
             Deactivating a category stops new signals being classified into it. Existing alerts keep
             their category.
           </p>
@@ -166,11 +166,11 @@ export function AdminPage() {
                     <Badge variant="outline">
                       baseline {SEVERITY_LABELS[category.baselineSeverity]}
                     </Badge>
-                    <span className="tabular text-xs text-muted-foreground">
+                    <span className="tabular text-[13px] text-readable-muted">
                       weight {category.severityWeight}
                     </span>
                   </div>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{category.description}</p>
+                  <p className="mt-0.5 text-[13px] text-readable-muted">{category.description}</p>
                 </div>
                 <Button
                   variant="outline"
@@ -191,10 +191,10 @@ export function AdminPage() {
       {/* ---------------------------------------------------------------- */}
       {tab === 'Scoring thresholds' && (
         <Card className="p-4">
-          <p className="mb-4 text-sm text-muted-foreground">
+          <p className="mb-4 text-sm text-readable-muted">
             The scoring service produces a 0–100 priority score. These thresholds map that score to a
             severity band. The active scorer is{' '}
-            <code className="text-xs">{reference.thresholds.scorerId}</code>, selected by
+            <code className="text-[13px]">{reference.thresholds.scorerId}</code>, selected by
             configuration so a different implementation can replace it without a code change
             elsewhere.
           </p>
@@ -252,7 +252,7 @@ export function AdminPage() {
       {/* ---------------------------------------------------------------- */}
       {tab === 'Escalation rules' && (
         <Card>
-          <p className="border-b px-4 py-3 text-sm text-muted-foreground">
+          <p className="border-b px-4 py-3 text-sm text-readable-muted">
             The delivery path is attempted in order. If an alert is still unacknowledged after the
             configured time it is flagged for escalation. OpeniWatch never notifies emergency
             services automatically.
@@ -327,7 +327,7 @@ export function AdminPage() {
                         {INTEGRATION_STATUS_LABELS[status]}
                       </Badge>
                     </div>
-                    <p className="mt-1 text-sm text-muted-foreground">{connector.description}</p>
+                    <p className="mt-1 text-sm text-readable-muted">{connector.description}</p>
                   </li>
                 )
               })}
@@ -352,7 +352,7 @@ export function AdminPage() {
                         </Badge>
                       ))}
                     </div>
-                    <p className="mt-1 text-sm text-muted-foreground">{reason}</p>
+                    <p className="mt-1 text-sm text-readable-muted">{reason}</p>
                   </li>
                 )
               })}
@@ -366,7 +366,7 @@ export function AdminPage() {
         <Card>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[44rem] text-sm">
-              <thead className="border-b bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <thead className="border-b bg-muted/50 text-left text-[13px] uppercase tracking-wide text-readable-muted">
                 <tr>
                   <th className="px-4 py-2 font-medium">#</th>
                   <th className="px-4 py-2 font-medium">Assignment</th>
@@ -385,7 +385,7 @@ export function AdminPage() {
                         <td className="tabular px-4 py-2">{assignment.assignmentNumber}</td>
                         <td className="px-4 py-2 font-medium">{assignment.name}</td>
                         <td className="px-4 py-2">{location?.officialName ?? 'Unknown'}</td>
-                        <td className="px-4 py-2 text-muted-foreground">
+                        <td className="px-4 py-2 text-readable-muted">
                           {location ? `${location.city}, ${location.state}` : '—'}
                         </td>
                         <td className="px-4 py-2">
@@ -399,7 +399,7 @@ export function AdminPage() {
               </tbody>
             </table>
           </div>
-          <p className="border-t px-4 py-3 text-sm text-muted-foreground">
+          <p className="border-t px-4 py-3 text-sm text-readable-muted">
             {reference.assignments.length} assignments across {reference.locations.length} physical
             locations. Costco #696 in Plano is covered by two assignments.
           </p>
@@ -441,7 +441,7 @@ function SubscriptionsTab() {
       <Card>
         <h2 className="border-b px-4 py-3 font-semibold">Your subscriptions</h2>
         {mine.length === 0 ? (
-          <p className="px-4 py-3 text-sm text-muted-foreground">
+          <p className="px-4 py-3 text-sm text-readable-muted">
             You have no notification subscriptions. Add one below to receive alerts.
           </p>
         ) : (
@@ -579,7 +579,7 @@ function SubscriptionsTab() {
           </div>
 
           <fieldset className="sm:col-span-2 lg:col-span-3">
-            <legend className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <legend className="text-[13px] font-medium uppercase tracking-wide text-readable-muted">
               Delivery channels
             </legend>
             <div className="mt-1 flex flex-wrap gap-3">
@@ -596,7 +596,7 @@ function SubscriptionsTab() {
                 </label>
               ))}
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-[13px] text-readable-muted">
               Channels without configured credentials record a simulated delivery instead of sending.
             </p>
           </fieldset>

@@ -33,12 +33,19 @@ npm run dev
 
 Open <http://localhost:5173>.
 
-With no Supabase credentials configured, OpeniWatch runs in **local demo mode**:
-a browser-local data provider seeded with the pilot organization, the Costco
-Pilot program, seven physical locations, eight operational assignments, a week
-of completed operational history and a live analyst queue. The complete
-workflow — ingest, score, validate, alert, notify, acknowledge, escalate,
-resolve, dispose, report — works offline with no credentials at all.
+`npm run dev` runs OpeniWatch in **local demo mode**: a browser-local data
+provider seeded with the pilot organization, the Costco Pilot program, seven
+physical locations, eight operational assignments, a week of completed
+operational history and a live analyst queue. The complete workflow — ingest,
+score, validate, alert, notify, acknowledge, escalate, resolve, dispose, report
+— works with no credentials at all.
+
+Demo mode is **opt-in**, enabled for `npm run dev` by the committed
+`.env.development`. It is never a fallback: a build with missing Supabase
+variables shows a blocking configuration screen rather than quietly serving
+browser-local data. A deployed application that looks functional while backed by
+one browser's storage is the most dangerous failure this product has. See
+[`docs/CONFIGURATION.md`](docs/CONFIGURATION.md).
 
 Demo mode is labelled in the interface. It is never presented as a live backend.
 
@@ -72,6 +79,7 @@ Demo mode is labelled in the interface. It is never presented as a live backend.
 | `npm run test:e2e` | Critical-workflow and security tests (Playwright) |
 | `npm run test:rls` | Apply the migrations to a throwaway PostgreSQL database and run the Row Level Security and retention scenario tests |
 | `npm run seed:users` | Create the six development users in a Supabase project |
+| `npm run generate:icons` | Regenerate the application icons in `public/icons/` |
 | `npm run validate:staging` | Run the live-infrastructure acceptance suite against a deployed Supabase project |
 
 `npm run test:e2e` builds the app and serves it automatically. On a machine
@@ -168,10 +176,12 @@ Full annotated list in [`.env.example`](.env.example). Summary:
 
 | Variable | Purpose |
 | --- | --- |
-| `VITE_SUPABASE_URL` | Supabase project URL. Blank ⇒ local demo mode. |
-| `VITE_SUPABASE_ANON_KEY` | Supabase anon key. Blank ⇒ local demo mode. |
+| `VITE_SUPABASE_URL` | Supabase project URL. **Required** in any deployment. |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anon key. **Required** in any deployment. |
+| `VITE_ENVIRONMENT_LABEL` | `Staging` / `Production` switch on fail-closed configuration. |
+| `VITE_ENABLE_LOCAL_DEMO` | `true` permits browser-local demo data. Ignored in staging and production. |
 | `VITE_DEFAULT_ORG_NAME` | Display name for the seeded organization. |
-| `VITE_ENABLE_SIMULATOR` | `false` disables the simulator. Set `false` in production. |
+| `VITE_ENABLE_SIMULATOR` | `true` enables the simulator. Never honoured in production. |
 | `VITE_SPYGLASS_BASE_URL` | Enables "View in Spyglass" deep links. |
 | `VITE_ONESIGNAL_APP_ID` | OneSignal application id for web push. |
 
@@ -234,7 +244,8 @@ openiwatch/
 │   ├── functions/         ingest-signal, dispatch-notifications,
 │   │                      escalate-unacknowledged, and shared modules
 │   └── tests/             RLS and retention scenario tests (real PostgreSQL)
-├── e2e/                   Playwright critical-workflow and security tests
+├── e2e/                   Playwright: workflow, security, mobile UI,
+│                       configuration and PWA tests
 ├── scripts/               seed-users.mjs, test-rls.sh,
 │                       validate-staging.mjs, perf-dataset.sql
 └── docs/                  Architecture, data model, workflow, scoring,
@@ -260,6 +271,8 @@ openiwatch/
 | [`docs/ROLE_TEST_MATRIX.md`](docs/ROLE_TEST_MATRIX.md) | What each role may do, and how it is verified |
 | [`docs/ONESIGNAL_SETUP.md`](docs/ONESIGNAL_SETUP.md) | Web push setup and verification |
 | [`docs/RETENTION.md`](docs/RETENTION.md) | Retention policy, holds, dry runs and purging |
+| [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) | **Every browser variable, and why missing ones block startup** |
+| [`docs/MOBILE.md`](docs/MOBILE.md) | Mobile interface, navigation drawer, typography and the PWA |
 | [`docs/PR_PHASE_1.md`](docs/PR_PHASE_1.md) | Pull request description — Phase 1 |
 | [`docs/PR_PHASE_2.md`](docs/PR_PHASE_2.md) | Pull request description — staging validation |
 

@@ -35,14 +35,27 @@
     # (wss) and the OneSignal API.
     Content-Security-Policy = "default-src 'self'; script-src 'self' https://cdn.onesignal.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.onesignal.com https://onesignal.com; frame-src https://*.onesignal.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
 
-# The OneSignal service worker must be served from the application origin with
-# a root scope, or push registration fails.
+# The service worker must be served from the application origin with a root
+# scope, or both push registration and PWA installation fail.
+#
+# This single file carries BOTH the OneSignal push handler and the offline
+# shell. A scope may have only one active registration, and OneSignal requires
+# this path, so the two behaviours share the file rather than fighting over "/".
+# See the comment at the top of public/OneSignalSDKWorker.js.
 [[headers]]
   for = "/OneSignalSDKWorker.js"
   [headers.values]
     Service-Worker-Allowed = "/"
     Cache-Control = "no-cache"
     Content-Type = "application/javascript"
+
+# The manifest must be readable by the browser's install machinery and must not
+# be cached past a deploy, or an icon or name change never takes effect.
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json"
+    Cache-Control = "no-cache"
 
 # Hashed build assets are immutable.
 [[headers]]

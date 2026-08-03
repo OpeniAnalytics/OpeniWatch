@@ -30,6 +30,10 @@
 
     --muted: 214 24% 95%;
     --muted-foreground: 215 16% 42%;
+    /* Operational facts (timestamps, locations, acknowledgment state) use this
+       instead of --muted-foreground: same family, enough contrast to read at a
+       glance. */
+    --readable-muted: 215 22% 32%;
 
     --accent: 214 30% 92%;
     --accent-foreground: 215 32% 22%;
@@ -69,7 +73,10 @@
     --secondary-foreground: 213 31% 91%;
 
     --muted: 217 24% 18%;
-    --muted-foreground: 215 18% 68%;
+    /* Lifted from 68% — the previous value failed to carry timestamps and
+       locations on the dark theme, which is the one a SOC actually runs. */
+    --muted-foreground: 215 20% 76%;
+    --readable-muted: 213 26% 86%;
 
     --accent: 217 24% 22%;
     --accent-foreground: 213 31% 93%;
@@ -91,12 +98,55 @@
     @apply border-border;
   }
 
+  html {
+    /* 16px floor. Anything below this is uncomfortable on a phone held at
+       arm's length in a car park, which is where this application is used. It
+       also stops iOS Safari zooming the viewport when a field takes focus. */
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
+    /* 17px operational body text on phones, settling back to 16px once there
+       is a mouse and a larger screen to read from. */
+    font-size: 1.0625rem;
+    line-height: 1.5;
     font-feature-settings:
       'rlig' 1,
       'calt' 1,
       'tnum' 1;
+  }
+
+  @media (min-width: 768px) {
+    body {
+      font-size: 1rem;
+    }
+  }
+
+  /*
+    Form controls carry the 16px floor on touch screens. Below 16px, iOS Safari
+    zooms the page when a field takes focus and the operator loses their place
+    in the feed.
+
+    This is scoped to a coarse pointer rather than applied everywhere, so the
+    denser desktop control sizing is untouched. An element selector loses to a
+    utility class on specificity, hence `!important` — the point is that no
+    Tailwind text size can drop a field below the floor by accident.
+  */
+  @media (pointer: coarse) {
+    input,
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+
+  p,
+  li,
+  dd,
+  blockquote {
+    line-height: 1.55;
   }
 
   /* Tabular numerals everywhere figures are compared down a column. */
@@ -124,7 +174,41 @@
 @layer components {
   /* Skip link for keyboard navigation. */
   .skip-link {
-    @apply absolute left-4 top-4 z-50 -translate-y-20 rounded-md bg-primary px-4 py-2 text-primary-foreground transition-transform focus:translate-y-0;
+    @apply absolute left-4 top-4 z-[70] -translate-y-20 rounded-md bg-primary px-4 py-2 text-primary-foreground transition-transform focus:translate-y-0;
+  }
+
+  /* ---------------------------------------------------------------------
+     Safe areas.
+
+     iOS reports the notch, the home indicator and the rounded corners through
+     env(safe-area-inset-*). Without these the sticky header sits under the
+     status bar and the alert action bar sits under the home indicator, where a
+     swipe dismisses the app instead of acknowledging an alert.
+     --------------------------------------------------------------------- */
+  .pad-safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .pad-safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pad-safe-x {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  /* Minimum comfortable touch target. 44px is the documented iOS floor and the
+     figure below which acknowledgment mis-taps start showing up. */
+  .touch-target {
+    min-height: 44px;
+  }
+
+  /* Muted text that stays legible.
+
+     Plain `text-muted-foreground` on the dark theme was too faint for
+     timestamps, locations and acknowledgment state — the facts an operator
+     reads fastest. This steps the contrast up for exactly those. */
+  .text-readable-muted {
+    color: hsl(var(--readable-muted));
   }
 
   /* Left border strip encoding severity on alert cards. */

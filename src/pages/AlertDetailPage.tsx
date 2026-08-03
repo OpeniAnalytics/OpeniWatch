@@ -285,6 +285,8 @@ export function AlertDetailPage() {
   const [error, setError] = React.useState<string | null>(null)
   const [note, setNote] = React.useState('')
   const [assignee, setAssignee] = React.useState('')
+  // Mobile only: secondary actions collapse so the bar stays one row tall.
+  const [moreOpen, setMoreOpen] = React.useState(false)
 
   const { data: context, loading } = useProviderQuery(
     (p) => (alertId ? p.getAlert(alertId) : Promise.resolve(null)),
@@ -307,12 +309,12 @@ export function AlertDetailPage() {
     }
   }
 
-  if (loading && !context) return <p className="text-sm text-muted-foreground">Loading alert…</p>
+  if (loading && !context) return <p className="text-sm text-readable-muted">Loading alert…</p>
   if (!context) {
     return (
       <Card className="p-6">
         <p className="font-medium">Alert not found</p>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-sm text-readable-muted">
           It may have been removed, or your role may not have access to its program.
         </p>
         <Button asChild variant="outline" size="sm" className="mt-3">
@@ -334,7 +336,9 @@ export function AlertDetailPage() {
       : null)
 
   return (
-    <div className="pb-24">
+    // Room for the sticky action bar, plus the iOS home indicator. Without
+    // the safe-area term the last note in the timeline sits under the bar.
+    <div className="pb-[calc(7rem+env(safe-area-inset-bottom,0px))]">
       <Button asChild variant="ghost" size="sm" className="mb-3">
         <Link to="/alerts">
           <ArrowLeft className="size-4" />
@@ -359,19 +363,19 @@ export function AlertDetailPage() {
           {category && <Badge variant="outline">{category.label}</Badge>}
           {alert.disposition && <DispositionBadge disposition={alert.disposition} />}
           {signal?.collectionMethod === 'simulator' && <SimulatedBadge />}
-          <span className="tabular ml-auto text-sm text-muted-foreground">
+          <span className="tabular ml-auto text-sm text-readable-muted">
             Priority {alert.priorityScore}/100
           </span>
         </div>
 
         <h1 className="mt-3 text-xl font-semibold leading-tight">{alert.title}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{alert.summary}</p>
+        <p className="mt-1 text-sm text-readable-muted">{alert.summary}</p>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="Protected location">
             {location.officialName}
             <br />
-            <span className="text-muted-foreground">
+            <span className="text-readable-muted">
               {location.addressLine1}
               {location.addressLine2 ? `, ${location.addressLine2}` : ''}, {location.city},{' '}
               {location.state} {location.postalCode}
@@ -384,7 +388,7 @@ export function AlertDetailPage() {
               <>
                 {nameFor(alert.acknowledgedBy)}
                 <br />
-                <span className="text-muted-foreground">
+                <span className="text-readable-muted">
                   {formatDateTime(alert.acknowledgedAt, tz)}
                 </span>
               </>
@@ -402,7 +406,7 @@ export function AlertDetailPage() {
           <Field label="Validated">
             {formatDateTime(alert.validatedAt, tz)}
             <br />
-            <span className="text-muted-foreground">by {nameFor(alert.validatedBy)}</span>
+            <span className="text-readable-muted">by {nameFor(alert.validatedBy)}</span>
           </Field>
           <Field label="First notified">
             {alert.firstNotifiedAt ? formatDateTime(alert.firstNotifiedAt, tz) : 'Not yet notified'}
@@ -450,15 +454,15 @@ export function AlertDetailPage() {
                     {signal.collectionMethod.replace(/_/g, ' ')}
                   </Field>
                   <Field label="Source record id">
-                    <code className="text-xs">{signal.sourceRecordId}</code>
+                    <code className="text-[13px]">{signal.sourceRecordId}</code>
                   </Field>
                   <Field label="Content hash">
-                    <code className="text-xs break-all">{signal.contentHash}</code>
+                    <code className="text-[13px] break-all">{signal.contentHash}</code>
                   </Field>
                 </div>
 
                 <Field label="Provenance" className="mt-3">
-                  <span className="text-muted-foreground">{signal.provenance}</span>
+                  <span className="text-readable-muted">{signal.provenance}</span>
                 </Field>
 
                 {isSafeExternalUrl(signal.sourceUrl) && (
@@ -486,7 +490,7 @@ export function AlertDetailPage() {
                               {item.mediaType}: {item.url}
                             </a>
                           ) : (
-                            <span className="text-muted-foreground">
+                            <span className="text-readable-muted">
                               {item.mediaType}: reference withheld (not an http(s) URL)
                             </span>
                           )}
@@ -497,7 +501,7 @@ export function AlertDetailPage() {
                 )}
               </>
             ) : (
-              <p className="text-sm text-muted-foreground">The source signal is unavailable.</p>
+              <p className="text-sm text-readable-muted">The source signal is unavailable.</p>
             )}
           </SectionCard>
 
@@ -513,7 +517,7 @@ export function AlertDetailPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <AuthorLocationBadge status={alert.authorLocation.status} />
                   {alert.authorLocation.status !== 'unknown' && (
-                    <span className="tabular text-xs text-muted-foreground">
+                    <span className="tabular text-[13px] text-readable-muted">
                       {alert.authorLocation.confidence}% confidence
                     </span>
                   )}
@@ -523,7 +527,7 @@ export function AlertDetailPage() {
             </div>
 
             {alert.authorLocation.status === 'unknown' ? (
-              <p className="mt-3 flex items-start gap-2 rounded-md bg-muted p-2.5 text-xs text-muted-foreground">
+              <p className="mt-3 flex items-start gap-2 rounded-md bg-muted p-2.5 text-[13px] text-readable-muted">
                 <Info className="mt-0.5 size-3.5 shrink-0" />
                 The author&apos;s current location is unknown and is deliberately not inferred from
                 their profile, biography or posting history. The profile location above is a
@@ -575,7 +579,7 @@ export function AlertDetailPage() {
               </span>
               <Badge variant="muted">{candidate.automatedScore.scorerId}</Badge>
             </div>
-            <pre className="mt-3 whitespace-pre-wrap rounded-md bg-muted p-3 text-xs leading-relaxed">
+            <pre className="mt-3 whitespace-pre-wrap rounded-md bg-muted p-3 text-[13px] leading-relaxed">
               {candidate.automatedScore.explanation}
             </pre>
           </SectionCard>
@@ -586,7 +590,7 @@ export function AlertDetailPage() {
                 {candidate.analystSeverity ? (
                   <SeverityBadge severity={candidate.analystSeverity} />
                 ) : (
-                  <span className="text-muted-foreground">
+                  <span className="text-readable-muted">
                     Not changed — the automated severity was accepted
                   </span>
                 )}
@@ -596,7 +600,7 @@ export function AlertDetailPage() {
                   (reference?.categories.find((c) => c.key === candidate.analystCategoryKey)
                     ?.label ?? candidate.analystCategoryKey)
                 ) : (
-                  <span className="text-muted-foreground">
+                  <span className="text-readable-muted">
                     Not changed — the automated category was accepted
                   </span>
                 )}
@@ -604,7 +608,7 @@ export function AlertDetailPage() {
             </div>
             <Field label="Analyst note" className="mt-3">
               {candidate.analystNotes ?? (
-                <span className="text-muted-foreground">No analyst note recorded.</span>
+                <span className="text-readable-muted">No analyst note recorded.</span>
               )}
             </Field>
           </SectionCard>
@@ -615,10 +619,10 @@ export function AlertDetailPage() {
               <ul className="space-y-2">
                 {context.relatedSignals.map((related) => (
                   <li key={related.signal.id} className="rounded-md border p-3">
-                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <div className="flex flex-wrap items-center gap-2 text-[13px]">
                       <span className="tabular font-medium">{related.similarity}% overlap</span>
                       <Badge variant="muted">{related.method.replace(/_/g, ' ')}</Badge>
-                      <span className="text-muted-foreground">
+                      <span className="text-readable-muted">
                         {related.signal.sourcePlatform} ·{' '}
                         {formatRelative(related.signal.publishedAt)}
                       </span>
@@ -633,12 +637,12 @@ export function AlertDetailPage() {
           {/* Comments ----------------------------------------------------- */}
           <SectionCard title="Operational notes">
             {context.comments.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No notes recorded yet.</p>
+              <p className="text-sm text-readable-muted">No notes recorded yet.</p>
             ) : (
               <ul className="space-y-3">
                 {context.comments.map((comment) => (
                   <li key={comment.id} className="rounded-md border p-3">
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-2 text-[13px] text-readable-muted">
                       <span className="font-medium text-foreground">
                         {nameFor(comment.authorUserId)}
                       </span>
@@ -681,10 +685,10 @@ export function AlertDetailPage() {
             <ol className="space-y-2">
               {context.auditTrail.map((event) => (
                 <li key={event.id} className="rounded-md border p-2.5">
-                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <div className="flex flex-wrap items-center gap-2 text-[13px]">
                     <span className="font-medium">{event.action.replace(/[._]/g, ' ')}</span>
                     <Badge variant="muted">{event.actorRole.replace(/_/g, ' ')}</Badge>
-                    <span className="text-muted-foreground">
+                    <span className="text-readable-muted">
                       {nameFor(event.actorUserId)} · {formatDateTime(event.occurredAt, tz)}
                     </span>
                   </div>
@@ -703,13 +707,13 @@ export function AlertDetailPage() {
         <div className="min-w-0 space-y-4">
           <SectionCard title="Notification delivery history">
             {context.deliveries.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-readable-muted">
                 No delivery has been attempted for this alert.
               </p>
             ) : (
               <ul className="space-y-2">
                 {context.deliveries.map((delivery) => (
-                  <li key={delivery.id} className="rounded-md border p-2.5 text-xs">
+                  <li key={delivery.id} className="rounded-md border p-2.5 text-[13px]">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="font-medium">
                         {DELIVERY_CHANNEL_LABELS[delivery.channel]}
@@ -726,12 +730,12 @@ export function AlertDetailPage() {
                         {DELIVERY_STATUS_LABELS[delivery.status]}
                       </Badge>
                       {delivery.isSimulated && <SimulatedBadge />}
-                      <span className="ml-auto text-muted-foreground">step {delivery.pathStep}</span>
+                      <span className="ml-auto text-readable-muted">step {delivery.pathStep}</span>
                     </div>
-                    <p className="mt-1 text-muted-foreground">
+                    <p className="mt-1 text-readable-muted">
                       To {nameFor(delivery.userId)} · {formatDateTime(delivery.attemptedAt, tz)}
                     </p>
-                    {delivery.detail && <p className="mt-1 text-muted-foreground">{delivery.detail}</p>}
+                    {delivery.detail && <p className="mt-1 text-readable-muted">{delivery.detail}</p>}
                   </li>
                 ))}
               </ul>
@@ -740,13 +744,13 @@ export function AlertDetailPage() {
 
           <SectionCard title="Acknowledgment history">
             {context.acknowledgments.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Not yet acknowledged.</p>
+              <p className="text-sm text-readable-muted">Not yet acknowledged.</p>
             ) : (
               <ul className="space-y-2 text-sm">
                 {context.acknowledgments.map((ack) => (
                   <li key={ack.id} className="rounded-md border p-2.5">
                     <p className="font-medium">{nameFor(ack.acknowledgedBy)}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-[13px] text-readable-muted">
                       {formatDateTime(ack.createdAt, tz)} · responded in{' '}
                       {formatDuration(ack.responseSeconds)}
                     </p>
@@ -759,18 +763,18 @@ export function AlertDetailPage() {
 
           <SectionCard title="Escalation history">
             {context.escalations.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No escalation recorded.</p>
+              <p className="text-sm text-readable-muted">No escalation recorded.</p>
             ) : (
               <ul className="space-y-2 text-sm">
                 {context.escalations.map((escalation) => (
                   <li key={escalation.id} className="rounded-md border p-2.5">
                     <p className="font-medium">{ESCALATION_LEVEL_LABELS[escalation.level]}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-[13px] text-readable-muted">
                       {nameFor(escalation.escalatedBy)} · {formatDateTime(escalation.createdAt, tz)}
                     </p>
                     <p className="mt-1">{escalation.reason}</p>
                     {escalation.notifiedParties.length > 0 && (
-                      <p className="mt-1 text-xs">
+                      <p className="mt-1 text-[13px]">
                         Notified: {escalation.notifiedParties.join(', ')}
                       </p>
                     )}
@@ -795,7 +799,7 @@ export function AlertDetailPage() {
                 {alert.dispositionNotes && (
                   <p className="mt-2 text-sm">{alert.dispositionNotes}</p>
                 )}
-                <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                <ul className="mt-2 space-y-1 text-[13px] text-readable-muted">
                   {context.dispositions.map((d) => (
                     <li key={d.id}>
                       {DISPOSITION_LABELS[d.disposition]} — {nameFor(d.setBy)} (
@@ -805,7 +809,7 @@ export function AlertDetailPage() {
                 </ul>
               </>
             ) : (
-              <p className="text-sm text-muted-foreground">No disposition set.</p>
+              <p className="text-sm text-readable-muted">No disposition set.</p>
             )}
           </SectionCard>
         </div>
@@ -815,65 +819,151 @@ export function AlertDetailPage() {
       {mayOperate && !closed && (
         // Offset past the navigation rail on desktop so the bar cannot cover
         // the sidebar controls beneath it.
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 p-3 backdrop-blur md:left-60">
-          <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-2">
-            {!alert.acknowledgedAt && (
-              <Button
-                size="lg"
-                disabled={busy}
-                onClick={() => run(() => provider.acknowledgeAlert(alert.id, null))}
-              >
-                Acknowledge
-              </Button>
-            )}
+        <div
+          className="pad-safe-bottom fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 backdrop-blur md:left-60"
+          data-testid="alert-action-bar"
+        >
+          <div className="mx-auto max-w-[1600px] p-3">
+            {/*
+              Mobile: Acknowledge is the whole first row, full width, because it
+              is the action that matters and the one most often taken one-handed
+              while walking. Everything else collapses behind "More actions" so
+              the bar stays one row tall and never grows into the content.
 
-            <div className="flex items-center gap-1.5">
-              <Select
-                aria-label="Assign to"
-                value={assignee}
-                onChange={(e) => setAssignee(e.target.value)}
-                className="h-12 w-44"
-              >
-                <option value="">Assign to…</option>
-                {(reference?.profiles ?? []).map((profile) => (
-                  <option key={profile.userId} value={profile.userId}>
-                    {profile.fullName}
-                  </option>
-                ))}
-              </Select>
+              Desktop keeps every control inline, exactly as before.
+            */}
+            <div className="flex flex-wrap items-center gap-2 md:hidden">
+              {!alert.acknowledgedAt && (
+                <Button
+                  size="lg"
+                  className="w-full text-[17px]"
+                  disabled={busy}
+                  onClick={() => run(() => provider.acknowledgeAlert(alert.id, null))}
+                >
+                  Acknowledge
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="lg"
-                disabled={busy || !assignee}
-                onClick={() =>
-                  run(async () => {
-                    await provider.assignAlert(alert.id, assignee, null)
-                    setAssignee('')
-                  })
-                }
+                className="w-full text-[17px]"
+                aria-expanded={moreOpen}
+                onClick={() => setMoreOpen((open) => !open)}
               >
-                Assign
+                {moreOpen ? 'Hide actions' : 'More actions'}
               </Button>
+
+              {moreOpen && (
+                <div className="flex w-full flex-col gap-2 pt-1">
+                  <Select
+                    aria-label="Assign to"
+                    value={assignee}
+                    onChange={(e) => setAssignee(e.target.value)}
+                    className="h-12 w-full text-[16px]"
+                  >
+                    <option value="">Assign to…</option>
+                    {(reference?.profiles ?? []).map((profile) => (
+                      <option key={profile.userId} value={profile.userId}>
+                        {profile.fullName}
+                      </option>
+                    ))}
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="w-full text-[17px]"
+                    disabled={busy || !assignee}
+                    onClick={() =>
+                      run(async () => {
+                        await provider.assignAlert(alert.id, assignee, null)
+                        setAssignee('')
+                      })
+                    }
+                  >
+                    Assign
+                  </Button>
+
+                  <EscalateDialog context={context} onDone={run} />
+                  <DispositionDialog context={context} onDone={run} />
+
+                  <Select
+                    aria-label="Change status"
+                    value={alert.status}
+                    disabled={busy}
+                    className="h-12 w-full text-[16px]"
+                    onChange={(e) =>
+                      run(() => provider.changeAlertStatus(alert.id, e.target.value as AlertStatus))
+                    }
+                  >
+                    {ALERT_STATUSES.map((s) => (
+                      <option key={s} value={s}>
+                        {ALERT_STATUS_LABELS[s]}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              )}
             </div>
 
-            <EscalateDialog context={context} onDone={run} />
-            <DispositionDialog context={context} onDone={run} />
+            <div className="hidden flex-wrap items-center gap-2 md:flex">
+              {!alert.acknowledgedAt && (
+                <Button
+                  size="lg"
+                  disabled={busy}
+                  onClick={() => run(() => provider.acknowledgeAlert(alert.id, null))}
+                >
+                  Acknowledge
+                </Button>
+              )}
 
-            <Select
-              aria-label="Change status"
-              value={alert.status}
-              disabled={busy}
-              className="h-12 w-40"
-              onChange={(e) =>
-                run(() => provider.changeAlertStatus(alert.id, e.target.value as AlertStatus))
-              }
-            >
-              {ALERT_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {ALERT_STATUS_LABELS[s]}
-                </option>
-              ))}
-            </Select>
+              <div className="flex items-center gap-1.5">
+                <Select
+                  aria-label="Assign to"
+                  value={assignee}
+                  onChange={(e) => setAssignee(e.target.value)}
+                  className="h-12 w-44"
+                >
+                  <option value="">Assign to…</option>
+                  {(reference?.profiles ?? []).map((profile) => (
+                    <option key={profile.userId} value={profile.userId}>
+                      {profile.fullName}
+                    </option>
+                  ))}
+                </Select>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  disabled={busy || !assignee}
+                  onClick={() =>
+                    run(async () => {
+                      await provider.assignAlert(alert.id, assignee, null)
+                      setAssignee('')
+                    })
+                  }
+                >
+                  Assign
+                </Button>
+              </div>
+
+              <EscalateDialog context={context} onDone={run} />
+              <DispositionDialog context={context} onDone={run} />
+
+              <Select
+                aria-label="Change status"
+                value={alert.status}
+                disabled={busy}
+                className="h-12 w-40"
+                onChange={(e) =>
+                  run(() => provider.changeAlertStatus(alert.id, e.target.value as AlertStatus))
+                }
+              >
+                {ALERT_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {ALERT_STATUS_LABELS[s]}
+                  </option>
+                ))}
+              </Select>
+            </div>
           </div>
         </div>
       )}

@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils'
 // ---------------------------------------------------------------------------
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-[16px] font-medium md:text-sm transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
@@ -29,12 +29,13 @@ const buttonVariants = cva(
         link: 'text-primary underline-offset-4 hover:underline',
       },
       size: {
-        // Minimum 36px tall so controls stay comfortable on a tablet.
-        default: 'h-9 px-4 py-2',
-        sm: 'h-8 rounded-md px-3 text-xs',
+        // 44px on touch, the documented iOS minimum; 36px once there is a
+        // mouse, where the denser scale is easier to scan.
+        default: 'min-h-11 px-4 py-2 md:h-9 md:min-h-0',
+        sm: 'min-h-9 rounded-md px-3 text-[13px] md:h-8',
         // Large targets for acknowledgment and escalation on mobile.
         lg: 'h-12 rounded-md px-6 text-base',
-        icon: 'h-9 w-9',
+        icon: 'size-11 md:size-9',
       },
     },
     defaultVariants: { variant: 'default', size: 'default' },
@@ -90,7 +91,7 @@ export const CardDescription = React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, ...props }, ref) => (
-  <p ref={ref} className={cn('text-sm text-muted-foreground', className)} {...props} />
+  <p ref={ref} className={cn('text-sm text-readable-muted', className)} {...props} />
 ))
 CardDescription.displayName = 'CardDescription'
 
@@ -113,14 +114,14 @@ CardFooter.displayName = 'CardFooter'
 // ---------------------------------------------------------------------------
 
 const badgeVariants = cva(
-  'inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium transition-colors',
+  'inline-flex items-center rounded-md border px-2 py-0.5 text-[13px] font-medium transition-colors',
   {
     variants: {
       variant: {
         default: 'border-transparent bg-primary/10 text-primary',
         secondary: 'border-transparent bg-secondary text-secondary-foreground',
         outline: 'border-border text-foreground',
-        muted: 'border-transparent bg-muted text-muted-foreground',
+        muted: 'border-transparent bg-muted text-readable-muted',
         success: 'border-transparent bg-emerald-500/12 text-emerald-700 dark:text-emerald-300',
         warning: 'border-transparent bg-amber-500/15 text-amber-800 dark:text-amber-300',
         danger: 'border-transparent bg-destructive/12 text-destructive',
@@ -147,7 +148,7 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
     <input
       ref={ref}
       className={cn(
-        'flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50',
+        'flex h-11 w-full rounded-md border border-input bg-background px-3 py-1 text-[16px] shadow-sm transition-colors placeholder:text-readable-muted md:h-9 md:text-sm disabled:cursor-not-allowed disabled:opacity-50',
         className,
       )}
       {...props}
@@ -163,7 +164,7 @@ export const Textarea = React.forwardRef<
   <textarea
     ref={ref}
     className={cn(
-      'flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50',
+      'flex min-h-[88px] w-full rounded-md border border-input bg-background px-3 py-2 text-[16px] shadow-sm placeholder:text-readable-muted md:text-sm disabled:cursor-not-allowed disabled:opacity-50',
       className,
     )}
     {...props}
@@ -180,7 +181,7 @@ export const Select = React.forwardRef<
   <select
     ref={ref}
     className={cn(
-      'flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm disabled:cursor-not-allowed disabled:opacity-50',
+      'flex h-11 w-full rounded-md border border-input bg-background px-3 py-1 text-[16px] shadow-sm disabled:cursor-not-allowed disabled:opacity-50 md:h-9 md:text-sm',
       className,
     )}
     {...props}
@@ -194,7 +195,7 @@ export function Label({
 }: React.LabelHTMLAttributes<HTMLLabelElement>) {
   return (
     <label
-      className={cn('text-xs font-medium uppercase tracking-wide text-muted-foreground', className)}
+      className={cn('text-[13px] font-medium uppercase tracking-wide text-readable-muted', className)}
       {...props}
     />
   )
@@ -239,7 +240,7 @@ export function EmptyState({
   return (
     <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-6 py-12 text-center">
       <p className="font-medium">{title}</p>
-      <p className="max-w-md text-sm text-muted-foreground">{description}</p>
+      <p className="max-w-md text-sm text-readable-muted">{description}</p>
       {action}
     </div>
   )
