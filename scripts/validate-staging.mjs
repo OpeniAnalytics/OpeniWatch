@@ -15,7 +15,7 @@
  * Usage:
  *
  *   SUPABASE_URL=https://<ref>.supabase.co \
- *   SUPABASE_ANON_KEY=<anon-key> \
+ *   SUPABASE_PUBLISHABLE_KEY=<sb_publishable_...> \
  *   SUPABASE_SECRET_KEY=<sb_secret_...> \
  *   OPENIWATCH_INGEST_SECRET=<ingest-secret> \
  *   OPENIWATCH_SEED_PASSWORD=<the password used by seed-users.mjs> \
@@ -67,7 +67,12 @@ function requireSecretKey() {
 
 
 const url = process.env.SUPABASE_URL
-const anonKey = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY
+// The publishable key, which is what an operator's browser uses. Accepting the
+// VITE_-prefixed spelling too is a convenience for pasting from a .env file;
+// the legacy anon variable is not read, so this suite cannot pass against a
+// deployment that has not actually migrated.
+const publishableKey =
+  process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.VITE_SUPABASE_PUBLISHABLE_KEY
 const serviceKey = process.env.SUPABASE_SECRET_KEY
 const ingestSecret = process.env.OPENIWATCH_INGEST_SECRET
 const seedPassword = process.env.OPENIWATCH_SEED_PASSWORD
@@ -77,9 +82,9 @@ const skipCrossTenant = args.has('--skip-cross-tenant')
 const keepTestData = args.has('--keep-test-data')
 const asJson = args.has('--json')
 
-if (!url || !anonKey || !serviceKey) {
+if (!url || !publishableKey || !serviceKey) {
   console.error(
-    'SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SECRET_KEY are required.\n' +
+    'SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY and SUPABASE_SECRET_KEY are required.\n' +
       'See docs/STAGING_ACCEPTANCE.md.',
   )
   process.exit(1)
@@ -126,7 +131,7 @@ function section(title) {
 
 /** Signs in as one seeded account and returns an RLS-bound client. */
 async function clientFor(role) {
-  const client = createClient(url, anonKey, {
+  const client = createClient(url, publishableKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
   const { data, error } = await client.auth.signInWithPassword({
