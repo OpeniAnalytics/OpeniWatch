@@ -37,6 +37,7 @@ import {
   selectCandidates,
 } from '../readModels'
 import {
+  NotAuthorizedError,
   WorkflowError,
   acknowledgeAlert,
   addComment,
@@ -149,9 +150,40 @@ export class SupabaseDataProvider implements DataProvider {
         this.client.from('program_memberships').select('*').eq('user_id', userId),
       ])
 
+    /*
+     * Authorization, checked here because authentication has already happened.
+     *
+     * Everything above this point is satisfied by any Supabase user — including
+     * one who signed in with a perfectly valid Microsoft account from the right
+     * Entra tenant. That proves identity and nothing else.
+     *
+     * Two records are required, and neither is created here:
+     *
+     *   - a profile, marked active. A deactivated leaver keeps their Microsoft
+     *     account and would otherwise keep their OpeniWatch access with it;
+     *   - an organization membership. This is what ties a person to a tenant,
+     *     and it is what every RLS policy resolves through.
+     *
+     * Note these reads are themselves subject to RLS, so an unauthorized user
+     * sees zero rows here rather than being trusted to report their own status.
+     * The screen this raises exposes no operational data.
+     */
     if (!profileRow) {
-      throw new WorkflowError(
-        'This account has no OpeniWatch profile. An administrator must create one before you can sign in.',
+      throw new NotAuthorizedError(
+        'This account is authenticated but has no OpeniWatch profile.',
+        email,
+      )
+    }
+
+    if ((profileRow as { is_active?: boolean }).is_active === false) {
+      throw new NotAuthorizedError('This OpeniWatch account has been deactivated.', email)
+    }
+
+    const memberships = orgRows ?? []
+    if (memberships.length === 0) {
+      throw new NotAuthorizedError(
+        'This account is authenticated but has no OpeniWatch organization membership.',
+        email,
       )
     }
 
@@ -167,12 +199,8 @@ export class SupabaseDataProvider implements DataProvider {
     ]
     const role = precedence.find((r) => roles.includes(r)) ?? 'viewer'
 
-    const organizationId =
-      (orgRows?.[0] as { organization_id?: string } | undefined)?.organization_id ??
-      ((roleRows ?? []).find((r) => (r as { organization_id?: string }).organization_id) as
-        | { organization_id?: string }
-        | undefined)?.organization_id ??
-      ''
+    // Guaranteed present: the membership check above returns early without one.
+    const organizationId = (memberships[0] as { organization_id: string }).organization_id
 
     const profile = toCamel<{ fullName: string; timeZone: string }>(
       profileRow as Record<string, unknown>,
@@ -190,18 +218,23 @@ export class SupabaseDataProvider implements DataProvider {
     return this.session
   }
 
-  async signIn({ email, password }: { email: string; password?: string }): Promise<SessionUser> {
-    if (!password) {
-      throw new WorkflowError('A password is required when Supabase authentication is configured.')
-    }
-    const { data, error } = await this.client.auth.signInWithPassword({ email, password })
-    if (error || !data.user) {
-      throw new WorkflowError(error?.message ?? 'Sign-in failed.')
-    }
-    const session = await this.hydrateSession(data.user.id, data.user.email ?? email)
-    if (!session) throw new WorkflowError('Sign-in succeeded but no profile could be loaded.')
-    this.invalidate()
-    return session
+  /**
+   * Not a sign-in path.
+   *
+   * OpeniWatch authenticates through Microsoft Entra ID or an emailed magic
+   * link, both of which complete at /auth/callback or /auth/confirm and then
+   * establish the session through `getSession()`. Password authentication was
+   * removed deliberately: it is the credential most often reused, phished and
+   * left behind when someone leaves, and a security operations product should
+   * not be the place it survives.
+   *
+   * The method remains because both providers share one contract and the local
+   * demo provider still uses it to pick a seeded role.
+   */
+  async signIn(): Promise<SessionUser> {
+    throw new WorkflowError(
+      'Password sign-in is not available. Use Microsoft, or request an email sign-in link.',
+    )
   }
 
   async signOut(): Promise<void> {

@@ -79,6 +79,7 @@ Demo mode is labelled in the interface. It is never presented as a live backend.
 | `npm run test:e2e` | Critical-workflow and security tests (Playwright) |
 | `npm run test:rls` | Apply the migrations to a throwaway PostgreSQL database and run the Row Level Security and retention scenario tests |
 | `npm run seed:users` | Create the six development users in a Supabase project |
+| `node scripts/provision-user.mjs` | Provision one authorized user, server-side, with no password and no invitation |
 | `npm run generate:icons` | Regenerate the application icons in `public/icons/` |
 | `npm run validate:staging` | Run the live-infrastructure acceptance suite against a deployed Supabase project |
 
@@ -272,6 +273,7 @@ openiwatch/
 | [`docs/ONESIGNAL_SETUP.md`](docs/ONESIGNAL_SETUP.md) | Web push setup and verification |
 | [`docs/RETENTION.md`](docs/RETENTION.md) | Retention policy, holds, dry runs and purging |
 | [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) | **Every browser variable, and why missing ones block startup** |
+| [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md) | **Microsoft sign-in, magic links, and why authentication is not authorization** |
 | [`docs/MOBILE.md`](docs/MOBILE.md) | Mobile interface, navigation drawer, typography and the PWA |
 | [`docs/PR_PHASE_1.md`](docs/PR_PHASE_1.md) | Pull request description — Phase 1 |
 | [`docs/PR_PHASE_2.md`](docs/PR_PHASE_2.md) | Pull request description — staging validation |

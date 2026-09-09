@@ -43,6 +43,31 @@ export class WorkflowError extends Error {
   }
 }
 
+/**
+ * The signed-in user authenticated successfully but is not authorized to use
+ * OpeniWatch.
+ *
+ * Distinct from every other failure on purpose. Authentication proves who
+ * someone is; it says nothing about whether they may see a protected location's
+ * alerts. A valid Microsoft account from a correctly configured Entra tenant
+ * reaches this state, and must, until an administrator grants it a membership.
+ *
+ * The application shows a dedicated screen for this and loads no operational
+ * data. It never creates the missing membership: silently self-provisioning on
+ * first sign-in would mean anyone in the tenant could grant themselves access
+ * simply by visiting the site.
+ */
+export class NotAuthorizedError extends Error {
+  constructor(
+    message: string,
+    /** Address to show on the screen so the operator can quote it in a request. */
+    readonly email: string,
+  ) {
+    super(message)
+    this.name = 'NotAuthorizedError'
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Authorization
 // ---------------------------------------------------------------------------
