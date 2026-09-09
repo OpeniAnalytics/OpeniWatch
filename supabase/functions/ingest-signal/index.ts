@@ -1,6 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { validateBatch, type ValidatedSignal } from '../_shared/signal-schema.ts'
+import { getSecretKey } from '../_shared/supabase-keys.ts'
 
 /**
  * Secure signal ingestion endpoint.

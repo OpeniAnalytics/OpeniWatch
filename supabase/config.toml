@@ -37,7 +37,17 @@ enable_confirmations = false
 [realtime]
 enabled = true
 
-# The ingest endpoint authenticates with its own shared secret rather than a
-# Supabase JWT, so the platform's JWT verification is disabled for it.
+# All three functions authenticate callers themselves, with a shared secret in
+# the x-openiwatch-secret header compared in constant time. None of them expects
+# a user JWT: the ingest endpoint is called by a collector, and the other two by
+# a scheduler. Leaving verify_jwt on would make Supabase reject those callers
+# before the function ran, which reads as "the function is broken" rather than
+# as an auth-gateway setting.
 [functions.ingest-signal]
+verify_jwt = false
+
+[functions.dispatch-notifications]
+verify_jwt = false
+
+[functions.escalate-unacknowledged]
 verify_jwt = false
