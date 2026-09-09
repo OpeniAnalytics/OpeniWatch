@@ -70,22 +70,22 @@ function CandidateRow({
       <div className="flex flex-wrap items-center gap-1.5">
         <SeverityBadge severity={severity} />
         <CandidateStatusBadge status={candidate.status} />
-        <span className="tabular ml-auto text-xs text-muted-foreground">
+        <span className="tabular ml-auto text-[13px] text-readable-muted">
           {candidate.automatedScore.priorityScore}/100
         </span>
       </div>
       <p className="mt-2 text-sm font-medium leading-snug">
         {category?.label ?? candidate.automatedCategoryKey}
       </p>
-      <p className="mt-0.5 text-xs text-muted-foreground">
+      <p className="mt-0.5 text-[13px] text-readable-muted">
         {location ? `${location.officialName} — ${location.city}, ${location.state}` : 'No location matched'}
       </p>
       {signal && (
-        <p className="mt-1.5 line-clamp-2 text-xs text-foreground/70">
+        <p className="mt-1.5 line-clamp-2 text-[13px] text-foreground/70">
           {excerpt(signal.originalText, 120)}
         </p>
       )}
-      <p className="mt-1.5 text-xs text-muted-foreground">
+      <p className="mt-1.5 text-[13px] text-readable-muted">
         {signal ? formatRelative(signal.publishedAt) : ''}
         {context.likelyDuplicates.length > 0 &&
           ` · ${context.likelyDuplicates.length} possible duplicate${context.likelyDuplicates.length > 1 ? 's' : ''}`}
@@ -203,15 +203,15 @@ function ReviewPanel({ context }: { context: CandidateWithContext }) {
               </Field>
               <Field label="Collection method">{signal.collectionMethod.replace(/_/g, ' ')}</Field>
               <Field label="Source record id">
-                <code className="text-xs">{signal.sourceRecordId}</code>
+                <code className="text-[13px]">{signal.sourceRecordId}</code>
               </Field>
               <Field label="Content hash">
-                <code className="text-xs">{signal.contentHash.slice(0, 16)}…</code>
+                <code className="text-[13px]">{signal.contentHash.slice(0, 16)}…</code>
               </Field>
             </div>
 
             <Field label="Provenance" className="mt-3">
-              <span className="text-muted-foreground">{signal.provenance}</span>
+              <span className="text-readable-muted">{signal.provenance}</span>
             </Field>
 
             {isSafeExternalUrl(signal.sourceUrl) && (
@@ -241,17 +241,17 @@ function ReviewPanel({ context }: { context: CandidateWithContext }) {
                       {item.mediaType}: {item.url}
                     </a>
                   ) : (
-                    <span className="text-muted-foreground">
+                    <span className="text-readable-muted">
                       {item.mediaType}: reference withheld (not an http(s) URL)
                     </span>
                   )}
                   {item.caption && (
-                    <span className="ml-2 text-xs text-muted-foreground">{item.caption}</span>
+                    <span className="ml-2 text-[13px] text-readable-muted">{item.caption}</span>
                   )}
                 </li>
               ))}
             </ul>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-[13px] text-readable-muted">
               Media is referenced, not copied. OpeniWatch does not re-host or proxy source media.
             </p>
           </div>
@@ -263,7 +263,7 @@ function ReviewPanel({ context }: { context: CandidateWithContext }) {
       {/* ------------------------------------------------------------------ */}
       <Card className="p-4">
         <h2 className="font-semibold">Public author information</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="mt-1 text-[13px] text-readable-muted">
           Everything below is exactly as published by the source. OpeniWatch does not identify
           account owners or enrich profile data.
         </p>
@@ -278,7 +278,7 @@ function ReviewPanel({ context }: { context: CandidateWithContext }) {
             <div className="flex items-center gap-2">
               <AuthorLocationBadge status={candidate.authorLocation.status} />
               {candidate.authorLocation.status !== 'unknown' && (
-                <span className="tabular text-xs text-muted-foreground">
+                <span className="tabular text-[13px] text-readable-muted">
                   {candidate.authorLocation.confidence}% confidence
                 </span>
               )}
@@ -287,7 +287,7 @@ function ReviewPanel({ context }: { context: CandidateWithContext }) {
         </div>
 
         {candidate.authorLocation.status === 'unknown' ? (
-          <p className="mt-3 flex items-start gap-2 rounded-md bg-muted p-2.5 text-xs text-muted-foreground">
+          <p className="mt-3 flex items-start gap-2 rounded-md bg-muted p-2.5 text-[13px] text-readable-muted">
             <Info className="mt-0.5 size-3.5 shrink-0" />
             The author&apos;s current location is unknown. A profile location, biography or posting
             history never establishes where a person is — only a public geotag, coordinates in the
@@ -334,7 +334,7 @@ function ReviewPanel({ context }: { context: CandidateWithContext }) {
         <div className="mt-3">
           <Label>Evidence</Label>
           {candidate.incidentLocation.evidence.length === 0 ? (
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-sm text-readable-muted">
               No location evidence was found. Assign a location manually before validating.
             </p>
           ) : (
@@ -362,7 +362,7 @@ function ReviewPanel({ context }: { context: CandidateWithContext }) {
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <SeverityBadge severity={candidate.automatedSeverity} size="lg" />
           <span className="tabular text-2xl font-semibold">{score.priorityScore}</span>
-          <span className="text-sm text-muted-foreground">/ 100 priority</span>
+          <span className="text-sm text-readable-muted">/ 100 priority</span>
           <Badge variant="outline">
             {reference?.categories.find((c) => c.key === candidate.automatedCategoryKey)?.label ??
               candidate.automatedCategoryKey}
@@ -382,12 +382,12 @@ function ReviewPanel({ context }: { context: CandidateWithContext }) {
             ] as const
           ).map(([label, value]) => (
             <div key={label} className="rounded-md border p-2">
-              <p className="text-xs text-muted-foreground">{label}</p>
+              <p className="text-[13px] text-readable-muted">{label}</p>
               <div className="mt-1 flex items-center gap-2">
                 <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
                   <div className="h-full rounded-full bg-primary" style={{ width: `${value}%` }} />
                 </div>
-                <span className="tabular text-xs font-medium">{value}</span>
+                <span className="tabular text-[13px] font-medium">{value}</span>
               </div>
             </div>
           ))}
@@ -397,7 +397,7 @@ function ReviewPanel({ context }: { context: CandidateWithContext }) {
           <summary className="cursor-pointer text-sm font-medium">
             Why this candidate received this score
           </summary>
-          <pre className="mt-2 whitespace-pre-wrap rounded-md bg-muted p-3 text-xs leading-relaxed">
+          <pre className="mt-2 whitespace-pre-wrap rounded-md bg-muted p-3 text-[13px] leading-relaxed">
             {score.explanation}
           </pre>
         </details>
@@ -409,7 +409,7 @@ function ReviewPanel({ context }: { context: CandidateWithContext }) {
       {context.likelyDuplicates.length > 0 && (
         <Card className="p-4">
           <h2 className="font-semibold">Likely duplicates and related reports</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-[13px] text-readable-muted">
             Independent accounts describing the same event may be corroboration rather than
             duplication. Review before marking as a duplicate.
           </p>
@@ -417,11 +417,11 @@ function ReviewPanel({ context }: { context: CandidateWithContext }) {
             {context.likelyDuplicates.map((dup) => (
               <li key={dup.candidate.id} className="rounded-md border p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="tabular text-xs font-medium">{dup.similarity}% word overlap</span>
+                  <span className="tabular text-[13px] font-medium">{dup.similarity}% word overlap</span>
                   <CandidateStatusBadge status={dup.candidate.status} />
                 </div>
                 <p className="mt-1.5 text-sm">{excerpt(dup.signal.originalText, 160)}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-1 text-[13px] text-readable-muted">
                   {dup.signal.sourcePlatform} · {formatRelative(dup.signal.publishedAt)}
                 </p>
                 {mayValidate && !decided && (
@@ -460,7 +460,7 @@ function ReviewPanel({ context }: { context: CandidateWithContext }) {
         </div>
 
         {!mayValidate ? (
-          <p className="mt-3 rounded-md bg-muted p-3 text-sm text-muted-foreground">
+          <p className="mt-3 rounded-md bg-muted p-3 text-sm text-readable-muted">
             Your role cannot validate or decide candidate alerts. Only analysts and program
             administrators may. You can review everything on this screen.
           </p>
@@ -471,7 +471,7 @@ function ReviewPanel({ context }: { context: CandidateWithContext }) {
               <strong>{candidate.status.replace(/_/g, ' ')}</strong>
             </p>
             {candidate.decisionReason && (
-              <p className="text-sm text-muted-foreground">{candidate.decisionReason}</p>
+              <p className="text-sm text-readable-muted">{candidate.decisionReason}</p>
             )}
             {candidate.alertId && (
               <Button size="sm" onClick={() => navigate(`/alerts/${candidate.alertId}`)}>
@@ -549,7 +549,7 @@ function ReviewPanel({ context }: { context: CandidateWithContext }) {
                   ))}
                 </Select>
                 {assignmentsForLocation.length > 1 && (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-[13px] text-readable-muted">
                     This location has {assignmentsForLocation.length} assignments.
                   </p>
                 )}
@@ -755,7 +755,7 @@ export function AnalystQueuePage() {
       </Card>
 
       {loading && list.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Loading candidates…</p>
+        <p className="text-sm text-readable-muted">Loading candidates…</p>
       ) : list.length === 0 ? (
         <EmptyState
           title="No candidates match these filters"

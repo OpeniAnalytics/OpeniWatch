@@ -163,5 +163,8 @@ SQL
 echo "Running RLS scenario tests"
 "${PSQL[@]}" -v ON_ERROR_STOP=1 -f supabase/tests/rls_scenarios.sql
 
+echo "Running retention scenario tests"
+"${PSQL[@]}" -v ON_ERROR_STOP=1 -f supabase/tests/retention_scenarios.sql
+
 echo
-echo "Migrations applied twice cleanly and all RLS scenario checks passed."
+echo "Migrations applied twice cleanly; all RLS and retention scenario checks passed."

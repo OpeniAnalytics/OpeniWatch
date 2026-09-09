@@ -4,6 +4,12 @@ OpeniWatch is a static single-page application plus a Supabase backend. All
 server-side work runs in Supabase Edge Functions, so the hosting platform never
 holds a secret beyond the browser-safe `VITE_` values.
 
+> **This document is instructions, not a record.** No deployment described here
+> has been performed. No Supabase project, Netlify site or OneSignal application
+> exists. The steps are written to be followed, and
+> [`PRODUCTION_READINESS.md`](PRODUCTION_READINESS.md) records why they could
+> not be.
+
 ---
 
 ## 1. Supabase
@@ -27,7 +33,7 @@ supabase start
 supabase db reset     # applies every migration in order
 ```
 
-Migrations run in filename order (`0001` … `0009`) and are re-runnable: enum
+Migrations run in filename order (`0001` … `0012`) and are re-runnable: enum
 creation is guarded, tables use `IF NOT EXISTS`, seeds use `ON CONFLICT`, and
 policies are dropped before being recreated. Applying them twice is a no-op.
 
@@ -110,12 +116,31 @@ Set in **Site configuration → Environment variables**:
 ```
 VITE_SUPABASE_URL=https://<project-ref>.supabase.co
 VITE_SUPABASE_ANON_KEY=<anon-key>
-VITE_DEFAULT_ORG_NAME=Your Organization Name
+VITE_ENVIRONMENT_LABEL=Staging
 VITE_ENABLE_SIMULATOR=false
+VITE_ENABLE_LOCAL_DEMO=false
+VITE_DEFAULT_ORG_NAME=Your Organization Name
 ```
 
-Set `VITE_ENABLE_SIMULATOR=false` for any production deployment. Optionally add
-`VITE_SPYGLASS_BASE_URL` and `VITE_ONESIGNAL_APP_ID`.
+Optionally add `VITE_SPYGLASS_BASE_URL` and `VITE_ONESIGNAL_APP_ID`.
+
+> ### Saving the variables is not enough
+>
+> These are **build-time** values. Vite compiles them into the JavaScript
+> bundle; nothing reads them when the page loads. A site whose variables look
+> correct in the dashboard will keep serving the previous bundle, with the
+> previous values, until it is rebuilt.
+>
+> After saving, **trigger a redeploy** — Deploys → Trigger deploy → *Clear cache
+> and deploy site*.
+>
+> This is the single most likely reason a deployment still shows the
+> configuration screen, or still showed demo mode before that screen existed.
+
+If `VITE_SUPABASE_URL` or `VITE_SUPABASE_ANON_KEY` is missing, OpeniWatch shows
+a blocking configuration screen naming the missing variables and refuses to
+start. It does not fall back to demo data. See
+[`CONFIGURATION.md`](CONFIGURATION.md).
 
 **Never set `SUPABASE_SERVICE_ROLE_KEY`, `ONESIGNAL_REST_API_KEY`,
 `TWILIO_AUTH_TOKEN` or `OPENIWATCH_INGEST_SECRET` in Netlify.** They belong to
@@ -137,9 +162,22 @@ the acceptance check rather than a formality.
 
 ### Configuration
 
-- [ ] The demo-mode banner is **absent** — confirms Supabase credentials loaded.
+- [ ] No configuration screen — confirms both Supabase variables reached the build.
+- [ ] The demo-mode banner is **absent**.
+- [ ] The environment badge reads `Staging`.
 - [ ] `curl -s <site>/assets/*.js | grep -c 'service_role'` returns 0.
 - [ ] The Simulator link is absent when `VITE_ENABLE_SIMULATOR=false`.
+
+### Progressive web application
+
+- [ ] `curl -sI <site>/manifest.webmanifest` returns 200.
+- [ ] `curl -sI <site>/OneSignalSDKWorker.js` returns `Service-Worker-Allowed: /`.
+- [ ] Chrome DevTools → Application → Manifest shows no errors.
+- [ ] Exactly **one** service worker is registered at scope `/`.
+- [ ] Installing from the browser produces a standalone window.
+- [ ] On iOS, Share → Add to Home Screen launches full-screen with no address bar.
+- [ ] Opting in to web push still works after installation — confirms the shared
+      worker did not break OneSignal.
 
 ### Seed data
 

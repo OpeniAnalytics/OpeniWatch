@@ -64,21 +64,21 @@ function ResultSummary({ results }: { results: PipelineResult[] }) {
                 )}
               </div>
 
-              <p className="mt-2 text-muted-foreground">
+              <p className="mt-2 text-readable-muted">
                 {location
                   ? `Matched to ${location.officialName} — ${location.city}, ${location.state} at ${result.locationMatch?.confidence ?? 0}% confidence.`
                   : 'No monitored location was matched. An analyst must assign one.'}
               </p>
 
               {result.duplicateFindings.length > 0 && (
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-1 text-[13px] text-readable-muted">
                   {result.duplicateFindings.length} similar report
                   {result.duplicateFindings.length === 1 ? '' : 's'} found (top match{' '}
                   {result.duplicateFindings[0]!.similarity}%).
                 </p>
               )}
 
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 text-[13px] text-readable-muted">
                 Author current location: {result.candidate?.authorLocation.status ?? 'unknown'}
               </p>
             </li>
@@ -145,7 +145,7 @@ export function SimulatorPage() {
 
       <div className="mb-4 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-200">
         <strong className="font-semibold">Simulated content.</strong> Every signal produced here is
-        stored with <code className="text-xs">collection_method = simulator</code> and a provenance
+        stored with <code className="text-[13px]">collection_method = simulator</code> and a provenance
         statement saying it was generated, so it can never be mistaken for collected material.
         Handles are fictional and no real account or URL is referenced.
       </div>
@@ -165,8 +165,8 @@ export function SimulatorPage() {
           return (
             <Card key={scenario.id} className="flex flex-col p-4">
               <h2 className="font-semibold leading-snug">{scenario.title}</h2>
-              <p className="mt-1 text-sm text-muted-foreground">{scenario.description}</p>
-              <p className="mt-2 flex-1 text-xs text-muted-foreground">
+              <p className="mt-1 text-sm text-readable-muted">{scenario.description}</p>
+              <p className="mt-2 flex-1 text-[13px] text-readable-muted">
                 <span className="font-medium text-foreground">Expected: </span>
                 {scenario.expectedOutcome}
               </p>
@@ -194,7 +194,7 @@ export function SimulatorPage() {
       {/* ------------------------------------------------------------------ */}
       <Card className="mt-6 p-4">
         <h2 className="font-semibold">Manual analyst submission</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-sm text-readable-muted">
           This is a real ingestion path, not a simulation. A submitted item runs through the same
           validation, normalization, location matching, duplicate detection and scoring as any other
           signal.
@@ -311,7 +311,7 @@ export function SimulatorPage() {
           </div>
         </form>
 
-        <p className="mt-3 text-xs text-muted-foreground">
+        <p className="mt-3 text-[13px] text-readable-muted">
           The profile location field records what the source publishes about itself. It never
           establishes where the author currently is.
         </p>

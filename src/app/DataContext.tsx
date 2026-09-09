@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { getDataProvider } from '@/data'
+import { pushClient } from '@/services/notifications/pushRegistration'
 import type { ChangeEvent, DataProvider, ReferenceData, SessionUser } from '@/data/provider'
 
 /**
@@ -69,6 +70,24 @@ export function DataProviderContext({ children }: { children: React.ReactNode })
     return provider.subscribe((_event: ChangeEvent) => bump())
   }, [provider, bump])
 
+  /*
+   * Web push identity follows the Supabase session.
+   *
+   * On sign-in and on a restored session the device is associated with the
+   * signed-in OpeniWatch user; on sign-out it is detached. Without this a
+   * shared phone would keep delivering one operator's alerts after a different
+   * one had taken it over.
+   *
+   * `syncIdentity` is a no-op on a device that has never enrolled, so an
+   * operator who has not asked for push never causes a request to OneSignal.
+   * Failures are swallowed: push identity is not worth blocking sign-in over,
+   * and the interface reports the registration state on its own screen.
+   */
+  React.useEffect(() => {
+    if (!session) return
+    void pushClient.syncIdentity(session.userId).catch(() => {})
+  }, [session])
+
   const signIn = React.useCallback(
     async (email: string, password?: string) => {
       const next = await provider.signIn({ email, password })
@@ -79,6 +98,9 @@ export function DataProviderContext({ children }: { children: React.ReactNode })
   )
 
   const signOut = React.useCallback(async () => {
+    // Detach the device before the session goes, so no window exists in which
+    // this browser is still addressable as the outgoing operator.
+    await pushClient.clearIdentity().catch(() => {})
     await provider.signOut()
     setSession(null)
     bump()

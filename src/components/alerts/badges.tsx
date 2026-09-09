@@ -42,7 +42,7 @@ export function SeverityBadge({
     <span
       className={cn(
         'inline-flex items-center rounded-md border font-semibold uppercase tracking-wide',
-        size === 'lg' ? 'px-2.5 py-1 text-sm' : 'px-2 py-0.5 text-xs',
+        size === 'lg' ? 'px-2.5 py-1 text-sm' : 'px-2 py-0.5 text-[13px]',
         SEVERITY_CLASSES[severity],
         className,
       )}
@@ -114,7 +114,7 @@ export function LocationConfidence({
       ? 'text-emerald-700 dark:text-emerald-300'
       : confidence >= 50
         ? 'text-amber-700 dark:text-amber-300'
-        : 'text-muted-foreground'
+        : 'text-readable-muted'
 
   return (
     <span className={cn('tabular text-sm font-medium', tone, className)}>

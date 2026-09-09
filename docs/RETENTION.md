@@ -1,8 +1,11 @@
 # Data retention
 
-**Status: implemented but not verified.** The settings, report, purge, holds and
-audit are complete and apply cleanly. No purge has been run against a live
-project, and the scheduler is deliberately not enabled.
+**Status: implemented and verified against real PostgreSQL; not verified against
+Supabase.** The settings, report, purge, holds and audit are complete, and
+twelve scenarios in `supabase/tests/retention_scenarios.sql` execute the real
+functions against a real database — including a real deletion — as part of
+`npm run test:rls`. No purge has been run against a live Supabase project, and
+the scheduler is deliberately not enabled.
 
 ## Principle
 
@@ -93,6 +96,32 @@ select cron.schedule(
 
 Run it as a dry run for at least a full retention cycle first, and read the
 `retention_runs` rows, before letting it delete anything.
+
+## What the scenario tests prove
+
+`npm run test:rls` applies every migration to a throwaway PostgreSQL cluster and
+then runs these twelve checks. They are listed here in full because the value of
+a destructive function is entirely in what it refuses to do.
+
+| # | Check | Why it matters |
+| :-: | --- | --- |
+| 1 | `retention_report` counts an eligible signal | The report is not vacuously empty |
+| 2 | `retention_report` counts a held signal separately | A purge can explain what it skipped |
+| 3 | `retention_report` deletes nothing | The report is genuinely read-only |
+| 4 | A real purge refuses while `retention_enabled = false` | The master switch is a control, not a label |
+| 5 | A dry run is allowed with the switch off | Operators can assess impact before opting in |
+| 6 | A dry run deletes nothing | `true` really means dry |
+| 7 | A dry run is recorded in `retention_runs` | Assessments are auditable too |
+| 8 | A real purge removes the eligible signal | The function actually works |
+| 9 | A held signal survives the purge | Legal holds hold |
+| 10 | Audit events are never purged | The record of a deletion outlives the deletion |
+| 11 | The purge writes an audit event | Every destructive act is attributable |
+| 12 | The run records what was held back | The skipped count is reconcilable afterwards |
+
+Result on this branch: **12 passed, 0 failed.**
+
+Not covered: behaviour under a Supabase Auth session, and the scheduled path —
+nothing calls `run_retention()` on a timer, by design.
 
 ## Testing safely
 

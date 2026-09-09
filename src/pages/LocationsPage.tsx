@@ -84,7 +84,7 @@ export function LocationsPage() {
                       <Badge variant="warning">{assignments.length} assignments</Badge>
                     )}
                   </div>
-                  <p className="mt-1 text-sm text-muted-foreground">
+                  <p className="mt-1 text-sm text-readable-muted">
                     {location.addressLine1}
                     {location.addressLine2 ? `, ${location.addressLine2}` : ''}, {location.city},{' '}
                     {location.state} {location.postalCode}
@@ -94,7 +94,7 @@ export function LocationsPage() {
                 <div className="flex items-center gap-3">
                   <div className="text-right">
                     <p className="tabular text-2xl font-semibold leading-none">{active}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-[13px] text-readable-muted">
                       active of {locationAlerts.length} total
                     </p>
                   </div>
@@ -123,7 +123,7 @@ export function LocationsPage() {
                         {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
                       </span>
                       <br />
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-[13px] text-readable-muted">
                         {location.geocodeSource.replace(/_/g, ' ')}
                       </span>
                     </>
@@ -141,7 +141,7 @@ export function LocationsPage() {
                       <li key={assignment.id} className="rounded-md border px-2.5 py-1.5 text-sm">
                         <span className="font-medium">{assignment.name}</span>
                         {assignment.coverageNotes && (
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-[13px] text-readable-muted">
                             {assignment.coverageNotes}
                           </p>
                         )}
@@ -153,7 +153,7 @@ export function LocationsPage() {
                 <div>
                   <Label>Alternate names</Label>
                   {aliases.length === 0 ? (
-                    <p className="mt-1 text-sm text-muted-foreground">None recorded.</p>
+                    <p className="mt-1 text-sm text-readable-muted">None recorded.</p>
                   ) : (
                     <div className="mt-1 flex flex-wrap gap-1.5">
                       {aliases.map((alias) => (
@@ -186,7 +186,7 @@ export function LocationsPage() {
                 <div>
                   <Label>Client contacts</Label>
                   {contacts.length === 0 ? (
-                    <p className="mt-1 text-sm text-muted-foreground">None recorded.</p>
+                    <p className="mt-1 text-sm text-readable-muted">None recorded.</p>
                   ) : (
                     <ul className="mt-1 space-y-1 text-sm">
                       {contacts
@@ -194,7 +194,7 @@ export function LocationsPage() {
                         .map((contact) => (
                           <li key={contact.id} className="rounded-md border px-2.5 py-1.5">
                             <span className="font-medium">{contact.fullName}</span>
-                            <span className="ml-2 text-xs text-muted-foreground">
+                            <span className="ml-2 text-[13px] text-readable-muted">
                               {contact.role}
                             </span>
                           </li>

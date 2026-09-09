@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import {
   Activity,
   Bell,
+  ChevronDown,
   ClipboardCheck,
   FlaskConical,
   LayoutDashboard,
@@ -16,12 +17,33 @@ import {
   Sun,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { env } from '@/lib/env'
+import { env, simulatorEnabled } from '@/lib/env'
 import { ROLE_LABELS } from '@/domain/enums'
 import { Badge, Button } from '@/components/ui/primitives'
 import { useData, useProviderQuery } from '@/app/DataContext'
 import { useTheme } from '@/app/ThemeContext'
 import { canValidate } from '@/data/workflow'
+import { MobileNavDrawer } from './MobileNavDrawer'
+import { InstallPrompt, UpdateNotice } from './InstallPrompt'
+
+/**
+ * Listens for a waiting service worker announced by `src/main.tsx`.
+ *
+ * Kept as a hook so the shell does not import the registration module directly:
+ * a build with no service worker support simply never fires the event.
+ */
+function useUpdateReady(): (() => void) | null {
+  const [activate, setActivate] = React.useState<(() => void) | null>(null)
+  React.useEffect(() => {
+    function onReady(event: Event) {
+      const detail = (event as CustomEvent<{ activate: () => void }>).detail
+      if (detail?.activate) setActivate(() => detail.activate)
+    }
+    window.addEventListener('openiwatch:update-ready', onReady)
+    return () => window.removeEventListener('openiwatch:update-ready', onReady)
+  }, [])
+  return activate
+}
 
 /**
  * Application shell.
@@ -51,28 +73,63 @@ const NAV_ITEMS: NavItem[] = [
 ]
 
 /**
- * Environment and mode banners.
+ * Environment badge.
  *
- * A staging deployment must never be mistaken for production: the label is
- * always visible, at the top, on every screen.
+ * A staging deployment must never be mistaken for production, but a permanent
+ * full-width warning strip is the wrong instrument: it costs a line of vertical
+ * space on every screen and, being always present, stops being read within a
+ * shift. This is a compact badge that sits in the header, where the operator
+ * already looks, and it appears only when there is a label to show.
+ *
+ * Full-width banners are now reserved for something actionable — the outbound
+ * notification kill switch, and demo mode.
  */
-function EnvironmentBanner() {
+function EnvironmentBadge() {
   const label = env.environmentLabel.trim()
   if (!label) return null
   return (
-    <div className="border-b border-primary/30 bg-primary/10 px-4 py-1.5 text-center text-xs font-medium text-primary">
-      {label} environment — not production. Data here may be reset at any time.
-    </div>
+    <span
+      className="hidden shrink-0 rounded border border-primary/40 bg-primary/10 px-2 py-0.5 text-[13px] font-semibold uppercase tracking-wide text-primary sm:inline-block"
+      title={`${label} environment — not production. Data here may be reset at any time.`}
+    >
+      {label}
+    </span>
   )
 }
 
+/**
+ * Demo-mode indicator.
+ *
+ * Genuine demo mode still has to be unmistakable — but it previously spent
+ * three lines of a phone screen saying so. One line, with the detail available
+ * on demand.
+ */
 function ModeBanner({ mode }: { mode: 'supabase' | 'local-demo' }) {
+  const [expanded, setExpanded] = React.useState(false)
   if (mode === 'supabase') return null
+
   return (
-    <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-center text-xs text-amber-900 dark:text-amber-200">
-      <strong className="font-semibold">Local demo mode.</strong> No Supabase credentials are
-      configured, so data is stored in this browser and notification deliveries beyond in-app are
-      simulated.
+    <div className="border-b border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-100">
+      <button
+        type="button"
+        onClick={() => setExpanded((open) => !open)}
+        aria-expanded={expanded}
+        className="flex w-full items-center justify-center gap-2 px-4 py-2 text-[15px] font-medium"
+      >
+        <span>Demo mode · Browser-local data · Notifications simulated</span>
+        <ChevronDown
+          className={cn('size-4 shrink-0 transition-transform', expanded && 'rotate-180')}
+          aria-hidden="true"
+        />
+      </button>
+      {expanded && (
+        <p className="mx-auto max-w-prose px-4 pb-3 text-[15px] leading-relaxed">
+          No Supabase project is connected. Everything you see is seeded pilot data held in this
+          browser only — no colleague sees it, and it disappears when this browser's storage is
+          cleared. Notification deliveries beyond in-app are recorded as simulated and no provider
+          is contacted.
+        </p>
+      )}
     </div>
   )
 }
@@ -105,7 +162,7 @@ function KillSwitchBanner() {
 
   if (!disabled) return null
   return (
-    <div className="border-b border-destructive/40 bg-destructive/10 px-4 py-1.5 text-center text-xs font-medium text-destructive">
+    <div className="border-b border-destructive/40 bg-destructive/10 px-4 py-1.5 text-center text-[13px] font-medium text-destructive">
       Outbound notifications are switched off{disabled.reason ? `: ${disabled.reason}` : '.'} In-app
       alerts continue; web push and SMS are not being attempted.
     </div>
@@ -137,22 +194,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { theme, toggle } = useTheme()
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = React.useState(false)
+  const menuButtonRef = React.useRef<HTMLButtonElement>(null)
+  const activateUpdate = useUpdateReady()
+
+  const closeMobileNav = React.useCallback(() => setMobileOpen(false), [])
 
   // Close the mobile drawer on navigation so the next screen is fully visible.
   React.useEffect(() => setMobileOpen(false), [location.pathname])
 
   const items = NAV_ITEMS.filter((item) => {
-    // The simulator writes signals, so it needs both the deployment flag and a
-    // role permitted to submit. The route enforces the same rule.
+    // The simulator writes signals, so it needs the deployment flag, a
+    // non-production environment, and a role permitted to submit. The route
+    // enforces the same rule, so typing the URL gets the same answer.
     if (item.requiresSimulator) {
-      if (!env.enableSimulator) return false
+      if (!simulatorEnabled) return false
       if (session && !canValidate(session.role)) return false
     }
     if (item.requiresValidation && session && !canValidate(session.role)) return false
     return true
   })
 
-  const nav = (
+  /** `compact` is the desktop rail; touch targets are larger in the drawer. */
+  const navList = (compact: boolean) => (
     <nav className="flex flex-col gap-0.5" aria-label="Main">
       {items.map((item) => (
         <NavLink
@@ -161,50 +224,51 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           end={item.to === '/'}
           className={({ isActive }) =>
             cn(
-              'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+              'flex items-center gap-3 rounded-md font-medium transition-colors',
+              compact ? 'px-3 py-2 text-[15px]' : 'touch-target px-3 py-3 text-[17px]',
               isActive
                 ? 'bg-primary/10 text-primary'
-                : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                : 'text-readable-muted hover:bg-accent hover:text-foreground',
             )
           }
         >
-          <item.icon className="size-4 shrink-0" />
+          <item.icon className={cn('shrink-0', compact ? 'size-4' : 'size-5')} />
           {item.label}
         </NavLink>
       ))}
     </nav>
   )
 
+  const currentLabel = items.find((i) => i.to === location.pathname)?.label ?? 'OpeniWatch'
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <a href="#main" className="skip-link">
         Skip to main content
       </a>
-      <EnvironmentBanner />
-      <ModeBanner mode={provider.mode} />
-      <KillSwitchBanner />
 
       <div className="flex">
-        {/* Desktop / tablet rail */}
-        <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r bg-card md:flex">
+        {/* Desktop / tablet rail. Unchanged in structure — the desktop
+            experience is deliberately preserved. */}
+        <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r bg-card md:flex">
           <div className="flex items-center gap-2.5 px-4 py-4">
             <div className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
               <Shield className="size-4" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold leading-tight">OpeniWatch</p>
-              <p className="truncate text-xs text-muted-foreground">
+              <p className="truncate text-[15px] font-semibold leading-tight">OpeniWatch</p>
+              <p className="truncate text-[13px] text-readable-muted">
                 {reference?.programs[0]?.name ?? 'Loading…'}
               </p>
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-2">{nav}</div>
+          <div className="flex-1 overflow-y-auto px-2">{navList(true)}</div>
 
           {session && (
             <div className="border-t p-3">
-              <p className="truncate text-sm font-medium">{session.fullName}</p>
-              <p className="mb-2 truncate text-xs text-muted-foreground">
+              <p className="truncate text-[15px] font-medium">{session.fullName}</p>
+              <p className="mb-2 truncate text-[13px] text-readable-muted">
                 {ROLE_LABELS[session.role]}
               </p>
               <Button variant="ghost" size="sm" className="w-full justify-start" onClick={signOut}>
@@ -216,55 +280,104 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-30 flex items-center gap-2 border-b bg-background/95 px-4 py-2.5 backdrop-blur">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-              onClick={() => setMobileOpen((open) => !open)}
-              aria-expanded={mobileOpen}
-              aria-label="Toggle navigation"
-            >
-              <Menu className="size-4" />
-            </Button>
+          {/*
+            Persistent header.
 
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">
-                {items.find((i) => i.to === location.pathname)?.label ?? 'OpeniWatch'}
-              </p>
+            `sticky top-0` against the page rather than `fixed`, so it never
+            overlaps content and never needs a spacer element. It stays put
+            while Safari's chrome collapses and expands, because a sticky
+            element is positioned by the scroll container, not the visual
+            viewport — which is what made a fixed header jump.
+
+            z-30 keeps it above cards; the drawer above it uses z-40/z-50.
+          */}
+          <header className="pad-safe-top sticky top-0 z-30 border-b bg-background/95 backdrop-blur">
+            <div className="flex items-center gap-2 px-3 py-2 sm:px-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="touch-target min-w-11 md:hidden"
+                onClick={() => setMobileOpen(true)}
+                aria-expanded={mobileOpen}
+                aria-controls="mobile-navigation"
+                aria-label="Open navigation"
+                ref={menuButtonRef}
+              >
+                <Menu className="size-5" />
+              </Button>
+
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[17px] font-semibold md:text-[15px]">{currentLabel}</p>
+              </div>
+
+              <EnvironmentBadge />
+              {reference && (
+                <Badge variant="outline" className="hidden lg:inline-flex">
+                  {reference.organization.name}
+                </Badge>
+              )}
+              <NotificationBell />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="touch-target min-w-11"
+                onClick={toggle}
+                aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                {theme === 'dark' ? <Sun className="size-5" /> : <Moon className="size-5" />}
+              </Button>
             </div>
-
-            {reference && (
-              <Badge variant="outline" className="hidden sm:inline-flex">
-                {reference.organization.name}
-              </Badge>
-            )}
-            <NotificationBell />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggle}
-              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            >
-              {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
-            </Button>
           </header>
 
-          {mobileOpen && (
-            <div className="border-b bg-card p-3 md:hidden">
-              {nav}
-              {session && (
-                <Button variant="ghost" size="sm" className="mt-2 w-full justify-start" onClick={signOut}>
-                  <LogOut className="size-4" />
-                  Sign out — {session.fullName}
-                </Button>
+          {/* Banners sit below the header so they scroll away, rather than
+              permanently costing a line of a phone screen. Only genuinely
+              actionable states appear here. */}
+          <ModeBanner mode={provider.mode} />
+          <KillSwitchBanner />
+
+          <MobileNavDrawer
+            open={mobileOpen}
+            onClose={closeMobileNav}
+            title="OpeniWatch"
+            restoreFocusTo={menuButtonRef}
+            // Sign out lives in a pinned footer rather than at the end of the
+            // scrolling list, so it is reachable without scrolling past every
+            // destination — and stays clear of the home indicator.
+            footer={
+              session ? (
+                <>
+                  <p className="truncate px-1 text-[15px] font-medium">{session.fullName}</p>
+                  <p className="mb-2 truncate px-1 text-[13px] text-readable-muted">
+                    {ROLE_LABELS[session.role]}
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="touch-target w-full justify-start text-[17px]"
+                    onClick={signOut}
+                  >
+                    <LogOut className="size-5" />
+                    Sign out
+                  </Button>
+                </>
+              ) : null
+            }
+          >
+            <div id="mobile-navigation">
+              {reference && (
+                <p className="px-3 pb-3 text-[15px] text-readable-muted">
+                  {reference.organization.name}
+                </p>
               )}
+              {navList(false)}
             </div>
-          )}
+          </MobileNavDrawer>
 
           <main id="main" className="min-w-0 flex-1 p-4 lg:p-6">
             {children}
+            <InstallPrompt />
           </main>
+
+          {activateUpdate && <UpdateNotice onActivate={activateUpdate} />}
         </div>
       </div>
     </div>
@@ -283,9 +396,15 @@ export function PageHeader({
 }) {
   return (
     <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-        {description && <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>}
+      <div className="min-w-0">
+        {/* ~30px on a phone, settling to the denser desktop scale where the
+            surrounding chrome already establishes hierarchy. */}
+        <h1 className="text-[30px] font-semibold leading-tight tracking-tight md:text-2xl">
+          {title}
+        </h1>
+        {description && (
+          <p className="mt-1 text-[15px] leading-relaxed text-readable-muted">{description}</p>
+        )}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>

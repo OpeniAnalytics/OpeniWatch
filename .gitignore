@@ -7,6 +7,9 @@ coverage
 .env
 .env.*
 !.env.example
+# Committed deliberately: development-only flags, no secrets. Vite reads it for
+# `npm run dev` only, never for a production build.
+!.env.development
 
 .DS_Store
 *.log
@@ -32,3 +35,6 @@ supabase/.temp
 # Local PostgreSQL test clusters (scripts/test-rls.sh, scripts/perf-dataset.sql)
 pgdata/
 *-pgdata/
+
+# TypeScript incremental build state (regenerated on every build)
+*.tsbuildinfo

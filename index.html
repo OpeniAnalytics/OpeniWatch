@@ -2,12 +2,39 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      viewport-fit=cover is what makes env(safe-area-inset-*) report real values
+      on a notched iPhone. Without it the insets are all zero and the sticky
+      header sits under the status bar.
+
+      No maximum-scale and no user-scalable=no: an operator must always be able
+      to zoom. The 16px type floor in index.css is what stops Safari zooming
+      unbidden when a field takes focus, rather than disabling zoom outright.
+    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
     <meta
       name="description"
       content="OpeniWatch — location-based threat detection, validation, alerting and reporting."
     />
+
+    <!-- Progressive web application -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#12264a" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#1355cc" media="(prefers-color-scheme: light)" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+
+    <!--
+      iOS standalone metadata. Safari does not read `display` or `theme_color`
+      from the manifest, so the equivalents have to be declared here for an
+      installed icon to launch full-screen with the right status bar.
+    -->
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="OpeniWatch" />
+
     <title>OpeniWatch</title>
   </head>
   <body>

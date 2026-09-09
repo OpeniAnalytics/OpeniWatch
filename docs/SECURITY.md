@@ -134,6 +134,68 @@ These hold regardless of which client wrote the row, including the service role.
   nosniff`, a referrer policy and a permissions policy denying geolocation,
   microphone, camera, payment and USB.
 
+### How this is verified
+
+`e2e/security.spec.ts` submits hostile content through the real manual
+submission path — not through a fixture — and follows it across the analyst
+queue, the alert detail view and an operational note. The payloads are
+
+```
+<script>window.__openiwatch_xss = true</script>
+<img src=x onerror="window.__openiwatch_xss = true">
+```
+
+placed in the signal text, the public author handle and a note body. At each
+stop the test asserts three things: `window.__openiwatch_xss` is never set, no
+`script` element containing the marker exists in the document, and no
+`img[onerror]` exists. It also asserts external source links carry
+`noopener noreferrer nofollow` with `target="_blank"`.
+
+**A finding worth stating plainly:** `<input type="url">` does **not** reject
+`javascript:alert(1)`. The value has a scheme, so the browser considers it a
+valid URL and the field is not marked invalid. The shared validation schema is
+the real gate. The test was rewritten to assert the schema's rejection surfaces
+an error and that no pipeline result is produced, rather than assuming the
+input type protects anything. Anyone hardening a new form here should assume the
+same: the input type is a keyboard hint, not a control.
+
+Executed on this branch: 7 tests, all passing, against a production build.
+
+---
+
+## Configuration fails closed
+
+A deployed OpeniWatch that cannot reach its backend refuses to start. It does
+not substitute browser-local demo data.
+
+This is a security property, not a convenience one. The alternative — which is
+what happened on a real staging deployment — is an application that looks
+entirely normal, accepts acknowledgments, and shows a location as monitored,
+while being backed by records visible to nobody and lost when storage is
+cleared. An operator has no way to tell the difference from the interface.
+
+- Missing or unusable `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` in staging
+  or production produce a blocking screen. No provider, no seed, no session, no
+  service worker.
+- `VITE_ENABLE_LOCAL_DEMO` is ignored outside development, so demo mode cannot
+  be switched on in a deployed environment even deliberately.
+- The screen names missing **variables**, never values — no fragment, no length,
+  no hash, no encoding. It renders before authentication, so anyone can reach it.
+- The simulator is refused unconditionally in production, and demo mode never
+  grants access to it.
+
+Full rules and tests: [`CONFIGURATION.md`](CONFIGURATION.md).
+
+### Offline caching
+
+The service worker caches the application shell only. Alerts, signals, raw
+source text, author information, Supabase responses, tokens and session state
+are never cached — the fetch handler refuses non-GET requests, cross-origin
+responses, and anything under `/rest/`, `/auth/`, `/functions/` or `/realtime/`.
+
+An operator offline sees the shell and a failure to load data, not a stale alert
+list they might act on believing it current. See [`MOBILE.md`](MOBILE.md).
+
 ---
 
 ## Privacy and intelligence standards
@@ -283,8 +345,26 @@ on `audit_events`, DELETE on alerts and their child records, and all access to
 `ingest_rate_limits`. A policy has no effect if the underlying privilege is
 missing, and relying on a platform default for that was fragile.
 
+### Retention scenarios
+
+`supabase/tests/retention_scenarios.sql` runs in the same harness and proves the
+destructive path behaves as documented rather than as intended: the report is
+read-only, holds are counted separately from eligible rows, a real purge refuses
+while the master switch is off, a dry run is permitted with the switch off and
+deletes nothing, an eligible signal is removed, a held signal survives, audit
+events are never purged, and every run is recorded with what it held back.
+
+Executed on this branch: 12 checks, all passing.
+
 ### What is still not covered
 
 The Supabase **client** path — Auth sign-in, Realtime subscriptions and the
 deployed Edge Function — requires a live project and has not been exercised end
 to end. `docs/DEPLOYMENT.md` lists those checks.
+
+Specifically **not** proven by any test in this repository: that RLS behaves the
+same under a Supabase Auth session as it does under the `authenticated`
+PostgreSQL role, and that one tenant cannot read another's rows on a live
+project. Both are release-blocking and both are covered by
+`npm run validate:staging`, which has never been executed. See
+[`PRODUCTION_READINESS.md`](PRODUCTION_READINESS.md).

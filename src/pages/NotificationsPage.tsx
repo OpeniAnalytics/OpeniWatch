@@ -3,6 +3,7 @@ import { DELIVERY_CHANNEL_LABELS, DELIVERY_STATUS_LABELS } from '@/domain/enums'
 import { Badge, Button, Card, EmptyState } from '@/components/ui/primitives'
 import { SimulatedBadge } from '@/components/alerts/badges'
 import { PageHeader } from '@/components/layout/AppShell'
+import { PushRegistrationPanel } from '@/components/notifications/PushRegistrationPanel'
 import { formatDateTime } from '@/lib/datetime'
 import { useData, useProviderQuery } from '@/app/DataContext'
 
@@ -41,8 +42,10 @@ export function NotificationsPage() {
         }
       />
 
+      <PushRegistrationPanel />
+
       {loading && list.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Loading notifications…</p>
+        <p className="text-sm text-readable-muted">Loading notifications…</p>
       ) : list.length === 0 ? (
         <EmptyState
           title="No notifications"
@@ -73,13 +76,13 @@ export function NotificationsPage() {
                   </Badge>
                   {delivery.isSimulated && <SimulatedBadge />}
                   {!delivery.readAt && <Badge>Unread</Badge>}
-                  <span className="ml-auto text-xs text-muted-foreground">
+                  <span className="ml-auto text-[13px] text-readable-muted">
                     {formatDateTime(delivery.attemptedAt)}
                   </span>
                 </div>
 
                 {delivery.detail && (
-                  <p className="mt-1.5 text-sm text-muted-foreground">{delivery.detail}</p>
+                  <p className="mt-1.5 text-sm text-readable-muted">{delivery.detail}</p>
                 )}
 
                 <div className="mt-2 flex flex-wrap gap-2">
