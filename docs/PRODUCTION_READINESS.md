@@ -4,44 +4,42 @@ Status of every item that stands between this branch and a client
 demonstration. Nothing here is marked complete on the strength of local demo
 mode.
 
-**Phases 2 and 3 could not be completed as specified.** Phase 3 was briefed on
-the basis that "the external service credentials and network access required for
-staging are now available." They are not. This was re-checked at the start of
-Phase 3 rather than assumed either way, and re-checked again before this
-document was written.
+**Infrastructure now exists.** Earlier revisions of this document said no
+OpeniWatch Supabase project existed. That was wrong, and the reason is worth
+recording: the search behind it listed projects account-wide and concluded from
+an incomplete result, rather than querying the known project reference
+directly. The project sits in a different Supabase organization from the one
+that listing covered.
 
-Every objective that needs live infrastructure is therefore marked **BLOCKED**,
-with the exact credential or action required and the exact command to run
-afterwards.
-
-Measured, not inferred:
+Verified through the Supabase and Netlify management APIs:
 
 ```
-# Environment variables — presence only, no values read or printed
-SUPABASE_URL                 ABSENT      VITE_SUPABASE_URL        ABSENT
-SUPABASE_SECRET_KEY    ABSENT      VITE_SUPABASE_PUBLISHABLE_KEY   ABSENT
-SUPABASE_ACCESS_TOKEN        ABSENT      OPENIWATCH_INGEST_SECRET ABSENT
-SUPABASE_DB_PASSWORD         ABSENT      OPENIWATCH_SEED_PASSWORD ABSENT
-ONESIGNAL_APP_ID             ABSENT      ONESIGNAL_REST_API_KEY   ABSENT
-NETLIFY_AUTH_TOKEN           ABSENT      NETLIFY_SITE_ID          ABSENT
-GOOGLE_MAPS_API_KEY          ABSENT
+Supabase project   dbbmlufrefctmxgitosx  "OpeniWatch"   ACTIVE_HEALTHY  us-west-2
+  37 public tables, RLS enabled AND forced on all 37, 76 policies
+  15 openiwatch.* functions, 17 enums
+  Seed present: 1 org, 1 program, 7 locations, 8 assignments, 21 categories
+  Plano: 2 assignments against 1 location
+  Migrations 0001-0012 all applied (verified object by object, not by history:
+  the project has no supabase_migrations table, so the schema was applied
+  outside the CLI)
+  auth.users: 0 - no operator has been provisioned yet
+  Edge Functions deployed: none
 
-# No .env, .env.local or .env.staging file exists in the working tree.
-# Neither the supabase nor the netlify CLI is installed.
-
-# Network — HTTPS CONNECT through the configured proxy
-supabase.com        403      api.supabase.com    unreachable
-netlify.com         403      api.netlify.com     unreachable
-onesignal.com       403      api.onesignal.com   unreachable
-
-docker info         daemon not running (/var/run/docker.sock absent)
+Netlify site       openiwatch  d82e7dcd-8233-4085-b41d-a5f132c2e319
+  Production branch main, context production, latest deploy ready
+  Netlify secret scan: 160 files scanned, 0 matches
 ```
 
-Consequently: no Supabase staging project was created, no migration was pushed
-to Supabase, no user was seeded, no Edge Function was deployed, no Netlify site
-was created, no OneSignal application was configured, and
-`npm run validate:staging` has never been executed. Nothing below should be read
-as implying otherwise.
+**What is still not verified is anything requiring a browser.** This
+environment reaches Supabase and Netlify through their management APIs only; it
+has no network route to `openiwatch.netlify.app`, to `api.supabase.com`, or to
+Microsoft. No sign-in has been performed by anyone.
+
+**Supabase Auth configuration is unreachable from here.** The Supabase MCP
+control plane exposes the database, migrations, Edge Functions and API keys —
+but not Auth settings. Site URL, redirect URLs, the Azure provider and SMTP are
+dashboard-only, and this environment holds no `SUPABASE_ACCESS_TOKEN`. Those
+remain manual actions.
 
 ---
 
@@ -58,7 +56,7 @@ Every integration carries exactly one label.
 | Development notification provider | **Implemented and verified** | Records simulated deliveries |
 | PostgreSQL schema and migrations | **Implemented and verified** | Applied twice against real PostgreSQL 16; see `npm run test:rls` |
 | Row Level Security | **Implemented and verified (PostgreSQL), not verified (Supabase)** | 28 scenarios pass against real PostgreSQL under the `authenticated` role. Not yet run through Supabase Auth sessions |
-| Supabase Auth | **Implemented but not verified** | No live project reachable |
+| Supabase Auth | **Implemented but not verified** | Project reachable and migrated; Auth settings (Site URL, redirect URLs, Azure, SMTP) are dashboard-only and not yet configured |
 | Supabase Realtime | **Implemented but not verified** | Subscription code written; never observed delivering |
 | OneSignal web push | **Implemented but not verified** | Server-side dispatcher, opt-in registration, service worker and CSP all complete. Requires credentials |
 | Twilio SMS | **Disabled** | No request is attempted. `disabled` is recorded with the reason. Asserted by Playwright |
@@ -68,7 +66,8 @@ Every integration carries exactly one label.
 | Email / Microsoft Teams / outbound webhook | **Stubbed** | Report themselves unavailable |
 | RSS / news, public safety feed | **Requires credentials** | Normalizers ready |
 | Zignal / Spyglass collection | **Requires vendor documentation** | Ten specific items listed in `INTEGRATIONS.md`. No endpoints fabricated |
-| Netlify staging deployment | **BLOCKED** | No network route, no token |
+| Netlify production deployment | **Implemented and verified** | `openiwatch.netlify.app` builds from `main`, latest deploy ready, Netlify secret scan clean |
+| Supabase API key model | **Implemented and verified** | Publishable key in the browser, secret key server-side; 30 tests including a real build asserted free of secret material |
 
 ---
 
