@@ -293,6 +293,53 @@ describe('7. Edge Functions parse SUPABASE_SECRET_KEYS', () => {
     }
   })
 
+  it('imports every shared helper it calls', () => {
+    /*
+     * This exists because the check above did not catch a real defect.
+     *
+     * All three functions called getSecretKey() while none of them imported it.
+     * Deno resolves imports at runtime, there is no build step to fail, and no
+     * test invoked the functions — so the first symptom would have been a
+     * ReferenceError on the first production request. Asserting the call
+     * without asserting the import proved nothing.
+     *
+     * Checking symbol by symbol rather than looking for one known import line,
+     * so the next helper added to _shared is covered without anyone
+     * remembering to extend this.
+     */
+    const SHARED_EXPORTS: Record<string, string> = {
+      getSecretKey: '_shared/supabase-keys.ts',
+      getPublishableKey: '_shared/supabase-keys.ts',
+      isSecretKey: '_shared/supabase-keys.ts',
+      dedupeKey: '_shared/notify.ts',
+      sendOneSignalPush: '_shared/notify.ts',
+      sendSms: '_shared/notify.ts',
+      killSwitchOutcome: '_shared/notify.ts',
+      validateBatch: '_shared/signal-schema.ts',
+    }
+
+    for (const fn of ['ingest-signal', 'dispatch-notifications', 'escalate-unacknowledged']) {
+      const source = readFileSync(`supabase/functions/${fn}/index.ts`, 'utf8')
+      const code = withoutComments(source)
+      // Everything the file imports, across single- and multi-line statements.
+      const imported = new Set<string>()
+      for (const match of source.matchAll(/import\s*\{([^}]*)\}\s*from/g)) {
+        for (const name of match[1]!.split(',')) {
+          imported.add(name.replace(/\btype\b/, '').trim())
+        }
+      }
+
+      for (const [symbol, module] of Object.entries(SHARED_EXPORTS)) {
+        const called = new RegExp(`\\b${symbol}\\s*\\(`).test(code)
+        if (!called) continue
+        expect(
+          imported.has(symbol),
+          `${fn} calls ${symbol}() but does not import it from ${module}`,
+        ).toBe(true)
+      }
+    }
+  })
+
   it('never puts the secret key in an Authorization header', () => {
     /*
      * An sb_secret_ key is not a JWT and carries no claims. Presented where a

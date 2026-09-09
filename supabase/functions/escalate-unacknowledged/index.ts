@@ -1,6 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { dedupeKey } from '../_shared/notify.ts'
+import { getSecretKey } from '../_shared/supabase-keys.ts'
 
 /**
  * Automatic escalation of unacknowledged alerts.

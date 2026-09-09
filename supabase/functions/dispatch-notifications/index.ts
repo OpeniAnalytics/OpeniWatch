@@ -8,6 +8,7 @@ import {
   type ProviderOutcome,
   type PushTarget,
 } from '../_shared/notify.ts'
+import { getSecretKey } from '../_shared/supabase-keys.ts'
 
 /**
  * Notification dispatcher.

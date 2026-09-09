@@ -210,7 +210,9 @@ test.describe('Supabase configuration selects the Supabase provider', () => {
     await expect(page.getByText(/Demo mode · Browser-local data/i)).toHaveCount(0)
     await expect(page.getByText(/Local demo mode/i)).toHaveCount(0)
 
-    // Supabase mode shows an email and password form rather than role buttons.
+    // Supabase mode shows the email sign-in form rather than role buttons.
+    // There is no password field: passwords were removed from the sign-in
+    // experience entirely. See e2e/auth.spec.ts.
     await expect(page.getByLabel(/email/i)).toBeVisible()
     await expect(page.getByRole('button', { name: /Kai Brennan/i })).toHaveCount(0)
   })

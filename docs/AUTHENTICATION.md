@@ -183,9 +183,11 @@ address gets no account and no email.
 
 ## Provisioning an authorized user
 
-`scripts/provision-user.mjs`. **Server-side only** — it uses the service-role
-key, which bypasses RLS entirely, and must never be bundled or placed in a
-Netlify variable.
+`scripts/provision-user.mjs`. **Server-side only** — it uses the project's
+secret key, which bypasses RLS entirely, and must never be bundled or placed in
+a Netlify variable. The script validates the key against `^sb_secret_` and
+refuses to run with anything else, so a legacy `service_role` JWT pasted in by
+habit stops at the first line rather than working silently.
 
 ```bash
 SUPABASE_URL=https://<ref>.supabase.co \
@@ -261,3 +263,9 @@ API keys, but not Auth settings — Site URL, redirect URLs, the Azure provider
 and SMTP are dashboard-only, and this environment holds no
 `SUPABASE_ACCESS_TOKEN` and has no route to the Management API. Those steps are
 listed as manual actions and have not been performed.
+
+The same limit applies to **function secrets**, which is why no first user has
+been provisioned: `provision-user.mjs` needs `SUPABASE_SECRET_KEY`, and a secret
+key can only be read from the dashboard's API Keys page. Provisioning is
+therefore a manual action too, and the first authorized email and role have not
+been supplied.

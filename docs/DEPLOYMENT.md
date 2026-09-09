@@ -8,10 +8,19 @@ holds a secret beyond the browser-safe `VITE_` values.
 > the Netlify site (`openiwatch.netlify.app`) both exist. The database is fully
 > migrated and seeded, and the Netlify production environment variables are set.
 >
-> Still outstanding: Supabase **Auth** configuration (Site URL, redirect URLs,
-> the Azure provider, Resend SMTP), which is dashboard-only and cannot be
-> reached from an automated control plane. See
-> [`AUTHENTICATION.md`](AUTHENTICATION.md).
+> The three Edge Functions are deployed and ACTIVE, and their deployed source
+> has been compared against this repository file by file.
+>
+> Still outstanding, and both dashboard-only:
+>
+> 1. Supabase **Auth** configuration — Site URL, redirect URLs, the Azure
+>    provider, Resend SMTP. See [`AUTHENTICATION.md`](AUTHENTICATION.md).
+> 2. Supabase **function secrets** — `OPENIWATCH_INGEST_SECRET` and the
+>    OneSignal credentials. Until these are set, all three functions return 503.
+>
+> Neither can be reached from an automated control plane: the Supabase MCP
+> surface exposes the database, migrations, Edge Functions and API keys, but not
+> Auth settings and not function secrets.
 
 ---
 
@@ -62,30 +71,71 @@ The id and slug stay stable, so seeded references survive a rename.
 
 ### Create users
 
+Use `provision-user.mjs`. It creates a **passwordless** account, which is the
+only kind that can sign in: `signInWithPassword` has been removed from the
+product, so a password is a credential OpeniWatch will never accept.
+
 ```bash
 SUPABASE_URL=https://<project-ref>.supabase.co \
 SUPABASE_SECRET_KEY=<sb_secret_...> \
-OPENIWATCH_SEED_PASSWORD='<a strong development password>' \
-node scripts/seed-users.mjs --allow-production
+node scripts/provision-user.mjs \
+  --email person@company.com \
+  --name "Casey Rivera" \
+  --role soc_manager \
+  --org openi-security-services \
+  --program costco-pilot
 ```
 
-The script refuses to run against a non-local URL without `--allow-production`,
-and refuses passwords shorter than 12 characters. **No password is stored in
-this repository.** See [`PILOT_SETUP.md`](PILOT_SETUP.md).
+`--dry-run` resolves and prints without writing. The script is all-or-nothing:
+it unwinds every row it created if any step fails, because a half-provisioned
+account looks granted in the dashboard and is refused at the door. Full
+description in [`AUTHENTICATION.md`](AUTHENTICATION.md).
 
-### Deploy the ingest function
+> `scripts/seed-users.mjs` is for a **local stack only**. It sets passwords, and
+> those passwords cannot be used to sign in to this product. Do not point it at
+> a deployed project. See [`PILOT_SETUP.md`](PILOT_SETUP.md).
+
+### Deploy the Edge Functions
+
+There are three, and all three are **deployed to `dbbmlufrefctmxgitosx`** and
+ACTIVE:
+
+| Function | Called by | Purpose |
+| --- | --- | --- |
+| `ingest-signal` | a collector | Accepts inbound signal batches |
+| `dispatch-notifications` | a scheduler | Hands queued deliveries to OneSignal |
+| `escalate-unacknowledged` | a scheduler | Raises escalations on overdue alerts |
 
 ```bash
 supabase secrets set OPENIWATCH_INGEST_SECRET="$(openssl rand -hex 32)"
 supabase secrets set OPENIWATCH_INGEST_PROGRAM_SLUG="costco-pilot"
 supabase functions deploy ingest-signal
+supabase functions deploy dispatch-notifications
+supabase functions deploy escalate-unacknowledged
 ```
 
-`SUPABASE_URL` and `SUPABASE_SECRET_KEY` are provided to functions by the
-platform.
+`SUPABASE_URL` and the `SUPABASE_SECRET_KEYS` dictionary are provided to
+functions by the platform; `_shared/supabase-keys.ts` reads the named key out
+of it. The legacy `SUPABASE_SERVICE_ROLE_KEY` is deliberately not consulted.
 
-`supabase/config.toml` sets `verify_jwt = false` for this function: it
-authenticates with its own shared secret rather than a Supabase JWT.
+> **They are deployed but not yet configured, and that is safe.**
+> `OPENIWATCH_INGEST_SECRET` has not been set on the project, so every one of
+> the three returns **503** with a generic message and touches nothing. Each
+> reads its whole environment up front and returns null if any part is missing:
+>
+> ```ts
+> if (!supabaseUrl || !secretKey || !ingestSecret) return null
+> ```
+>
+> Setting the secret is what turns them on. Until then they fail closed rather
+> than running with a partial configuration.
+
+`supabase/config.toml` sets `verify_jwt = false` for all three. Each
+authenticates its own caller with a shared secret in the `x-openiwatch-secret`
+header, compared in constant time, and returns 401 otherwise. None expects a
+user JWT — the callers are a collector and a scheduler, not a browser — so
+leaving JWT verification on would make Supabase reject them at the gateway
+before the function ran.
 
 ### Authentication settings
 
