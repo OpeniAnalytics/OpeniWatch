@@ -19,7 +19,7 @@ import type { Configuration } from '@/lib/env'
 export function ConfigurationErrorPage({ configuration }: { configuration: Configuration }) {
   if (configuration.status !== 'blocked') return null
 
-  const { env, missing, invalid, reference } = configuration
+  const { env, missing, invalid, reference, legacyVariableInUse } = configuration
   const label = env.environmentLabel || 'This deployment'
 
   return (
@@ -92,6 +92,29 @@ export function ConfigurationErrorPage({ configuration }: { configuration: Confi
                 </li>
               ))}
             </ul>
+          </section>
+        )}
+
+        {legacyVariableInUse && (
+          <section className="mt-6" aria-labelledby="legacy-heading">
+            <h2 id="legacy-heading" className="text-lg font-semibold">
+              A renamed variable
+            </h2>
+            <p className="mt-1 text-[15px] leading-relaxed text-muted-foreground">
+              This deployment still sets{' '}
+              <code className="font-mono">VITE_SUPABASE_ANON_KEY</code>. OpeniWatch no longer reads
+              it. Supabase&rsquo;s legacy <code className="font-mono">anon</code> key has been
+              replaced by a <strong className="font-semibold text-foreground">publishable</strong>{' '}
+              key, which rotates independently of the project&rsquo;s JWT signing secret.
+            </p>
+            <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
+              Copy the <code className="font-mono">sb_publishable_…</code> value from{' '}
+              <strong className="font-semibold text-foreground">
+                Project Settings &rarr; API Keys
+              </strong>{' '}
+              into <code className="font-mono">VITE_SUPABASE_PUBLISHABLE_KEY</code>, remove the old
+              variable, and redeploy. Do not use the Legacy API keys page.
+            </p>
           </section>
         )}
 

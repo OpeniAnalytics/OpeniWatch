@@ -79,7 +79,7 @@ These hold regardless of which client wrote the row, including the service role.
 
 ## Secrets
 
-- The **service-role key** is used only by Supabase Edge Functions. It is never
+- The **secret key** is used only by Supabase Edge Functions. It is never
   imported into `src/` and never appears in a browser bundle.
 - Only `VITE_`-prefixed variables reach the client, and `src/lib/env.ts` is the
   single place that reads them. `src/vite-env.d.ts` types exactly which
@@ -174,7 +174,7 @@ entirely normal, accepts acknowledgments, and shows a location as monitored,
 while being backed by records visible to nobody and lost when storage is
 cleared. An operator has no way to tell the difference from the interface.
 
-- Missing or unusable `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` in staging
+- Missing or unusable `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` in staging
   or production produce a blocking screen. No provider, no seed, no session, no
   service worker.
 - `VITE_ENABLE_LOCAL_DEMO` is ignored outside development, so demo mode cannot

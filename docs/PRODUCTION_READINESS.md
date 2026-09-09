@@ -19,7 +19,7 @@ Measured, not inferred:
 ```
 # Environment variables — presence only, no values read or printed
 SUPABASE_URL                 ABSENT      VITE_SUPABASE_URL        ABSENT
-SUPABASE_SERVICE_ROLE_KEY    ABSENT      VITE_SUPABASE_ANON_KEY   ABSENT
+SUPABASE_SECRET_KEY    ABSENT      VITE_SUPABASE_PUBLISHABLE_KEY   ABSENT
 SUPABASE_ACCESS_TOKEN        ABSENT      OPENIWATCH_INGEST_SECRET ABSENT
 SUPABASE_DB_PASSWORD         ABSENT      OPENIWATCH_SEED_PASSWORD ABSENT
 ONESIGNAL_APP_ID             ABSENT      ONESIGNAL_REST_API_KEY   ABSENT
@@ -94,14 +94,14 @@ brief has to be read against the other:
 ### Step 3 (Phase 3 step 5) — live Supabase staging project — BLOCKED
 
 **Needs:** a Supabase account, a staging project, and its URL, anon key and
-service-role key. Network access to `*.supabase.co` and `api.supabase.com`.
+secret key. Network access to `*.supabase.co` and `api.supabase.com`.
 
 **Then run:**
 
 ```bash
 supabase link --project-ref <staging-ref>
 supabase db push
-SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
+SUPABASE_URL=... SUPABASE_SECRET_KEY=... \
 OPENIWATCH_SEED_PASSWORD='<strong password>' npm run seed:users -- --allow-production
 supabase secrets set OPENIWATCH_INGEST_SECRET="$(openssl rand -hex 32)"
 supabase secrets set OPENIWATCH_APP_ORIGIN="https://<staging-site>"
@@ -118,8 +118,8 @@ supabase functions deploy escalate-unacknowledged
 
 ```bash
 SUPABASE_URL=https://<ref>.supabase.co \
-SUPABASE_ANON_KEY=<anon> \
-SUPABASE_SERVICE_ROLE_KEY=<service-role> \
+SUPABASE_PUBLISHABLE_KEY=<sb_publishable_...> \
+SUPABASE_SECRET_KEY=<sb_secret_...> \
 OPENIWATCH_INGEST_SECRET=<secret> \
 OPENIWATCH_SEED_PASSWORD=<password> \
 npm run validate:staging
@@ -306,7 +306,7 @@ These must pass before any client demonstration:
 1. Cross-tenant isolation proven against live Supabase (`validate:staging`).
 2. RLS proven through authenticated Supabase sessions, not only PostgreSQL
    roles.
-3. The deployed bundle scanned and confirmed free of the service-role key.
+3. The deployed bundle scanned and confirmed free of the secret key.
 4. OneSignal verified to send, with the delivery recorded as `sent` and not
    claimed as `delivered`.
 5. Automatic escalation observed to escalate once and only once.

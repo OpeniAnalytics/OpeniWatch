@@ -4,11 +4,14 @@ OpeniWatch is a static single-page application plus a Supabase backend. All
 server-side work runs in Supabase Edge Functions, so the hosting platform never
 holds a secret beyond the browser-safe `VITE_` values.
 
-> **This document is instructions, not a record.** No deployment described here
-> has been performed. No Supabase project, Netlify site or OneSignal application
-> exists. The steps are written to be followed, and
-> [`PRODUCTION_READINESS.md`](PRODUCTION_READINESS.md) records why they could
-> not be.
+> **Partly a record now.** The Supabase project (`dbbmlufrefctmxgitosx`) and
+> the Netlify site (`openiwatch.netlify.app`) both exist. The database is fully
+> migrated and seeded, and the Netlify production environment variables are set.
+>
+> Still outstanding: Supabase **Auth** configuration (Site URL, redirect URLs,
+> the Azure provider, Resend SMTP), which is dashboard-only and cannot be
+> reached from an automated control plane. See
+> [`AUTHENTICATION.md`](AUTHENTICATION.md).
 
 ---
 
@@ -16,8 +19,9 @@ holds a secret beyond the browser-safe `VITE_` values.
 
 ### Create the project
 
-Create a project at <https://supabase.com>. Note the project reference, the
-anon key and the service-role key.
+The OpeniWatch project is `dbbmlufrefctmxgitosx`. Take the publishable and
+secret keys from **Project Settings -> API Keys**, not from the Legacy API keys
+page.
 
 ### Apply the migrations
 
@@ -60,7 +64,7 @@ The id and slug stay stable, so seeded references survive a rename.
 
 ```bash
 SUPABASE_URL=https://<project-ref>.supabase.co \
-SUPABASE_SERVICE_ROLE_KEY=<service-role-key> \
+SUPABASE_SECRET_KEY=<sb_secret_...> \
 OPENIWATCH_SEED_PASSWORD='<a strong development password>' \
 node scripts/seed-users.mjs --allow-production
 ```
@@ -77,7 +81,7 @@ supabase secrets set OPENIWATCH_INGEST_PROGRAM_SLUG="costco-pilot"
 supabase functions deploy ingest-signal
 ```
 
-`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are provided to functions by the
+`SUPABASE_URL` and `SUPABASE_SECRET_KEY` are provided to functions by the
 platform.
 
 `supabase/config.toml` sets `verify_jwt = false` for this function: it
@@ -115,7 +119,7 @@ Set in **Site configuration → Environment variables**:
 
 ```
 VITE_SUPABASE_URL=https://<project-ref>.supabase.co
-VITE_SUPABASE_ANON_KEY=<anon-key>
+VITE_SUPABASE_PUBLISHABLE_KEY=<sb_publishable_...>
 VITE_ENVIRONMENT_LABEL=Staging
 VITE_ENABLE_SIMULATOR=false
 VITE_ENABLE_LOCAL_DEMO=false
@@ -137,12 +141,12 @@ Optionally add `VITE_SPYGLASS_BASE_URL` and `VITE_ONESIGNAL_APP_ID`.
 > This is the single most likely reason a deployment still shows the
 > configuration screen, or still showed demo mode before that screen existed.
 
-If `VITE_SUPABASE_URL` or `VITE_SUPABASE_ANON_KEY` is missing, OpeniWatch shows
+If `VITE_SUPABASE_URL` or `VITE_SUPABASE_PUBLISHABLE_KEY` is missing, OpeniWatch shows
 a blocking configuration screen naming the missing variables and refuses to
 start. It does not fall back to demo data. See
 [`CONFIGURATION.md`](CONFIGURATION.md).
 
-**Never set `SUPABASE_SERVICE_ROLE_KEY`, `ONESIGNAL_REST_API_KEY`,
+**Never set `SUPABASE_SECRET_KEY`, `ONESIGNAL_REST_API_KEY`,
 `TWILIO_AUTH_TOKEN` or `OPENIWATCH_INGEST_SECRET` in Netlify.** They belong to
 Supabase function secrets. Only `VITE_`-prefixed values are needed here, and
 only those reach the browser.

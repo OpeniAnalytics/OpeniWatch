@@ -6,6 +6,8 @@ import { AppShell } from '@/components/layout/AppShell'
 import { SignInPage } from '@/pages/SignInPage'
 import { OverviewPage } from '@/pages/OverviewPage'
 import { ConfigurationErrorPage } from '@/pages/ConfigurationErrorPage'
+import { AuthCallbackPage } from '@/pages/auth/AuthCallbackPage'
+import { NotAuthorizedPage } from '@/pages/auth/NotAuthorizedPage'
 import { canValidate } from '@/data/workflow'
 import { configuration, env, simulatorEnabled } from '@/lib/env'
 
@@ -82,13 +84,32 @@ function RequireRole({
 }
 
 function AuthenticatedRoutes() {
-  const { session, loading } = useData()
+  const { session, loading, authorization, signOut } = useData()
 
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p className="text-sm text-readable-muted">Loading OpeniWatch…</p>
       </div>
+    )
+  }
+
+  /*
+   * Authenticated, but not authorized.
+   *
+   * Checked before the sign-in screen: this user HAS a valid session, so
+   * showing them the sign-in form would invite them to authenticate again and
+   * land in exactly the same place with no explanation. It is also checked
+   * before the shell, so no provider query runs and nothing operational is
+   * fetched or rendered.
+   */
+  if (authorization) {
+    return (
+      <NotAuthorizedPage
+        email={authorization.email}
+        reason={authorization.reason}
+        onSignOut={() => void signOut()}
+      />
     )
   }
 
@@ -163,7 +184,18 @@ export default function App() {
     <ThemeProvider>
       <DataProviderContext>
         <BrowserRouter>
-          <AuthenticatedRoutes />
+          {/*
+            The two auth routes sit OUTSIDE the authenticated gate on purpose:
+            they run at the moment when there is no session yet, and their whole
+            job is to create one. Routing them through AuthenticatedRoutes would
+            show the sign-in screen over the top of the callback and the
+            credential would never be exchanged.
+          */}
+          <Routes>
+            <Route path="/auth/callback" element={<AuthCallbackPage mode="oauth" />} />
+            <Route path="/auth/confirm" element={<AuthCallbackPage mode="magic-link" />} />
+            <Route path="*" element={<AuthenticatedRoutes />} />
+          </Routes>
         </BrowserRouter>
       </DataProviderContext>
     </ThemeProvider>

@@ -8,14 +8,25 @@
  * appear in this interface. In particular the following are server-side only
  * and must never gain a VITE_ alias:
  *
- *   SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ACCESS_TOKEN, SUPABASE_DB_PASSWORD,
- *   ONESIGNAL_REST_API_KEY, OPENIWATCH_INGEST_SECRET, NETLIFY_AUTH_TOKEN
+ *   SUPABASE_SECRET_KEY, SUPABASE_SECRET_KEYS, SUPABASE_ACCESS_TOKEN,
+ *   SUPABASE_DB_PASSWORD, ONESIGNAL_REST_API_KEY, OPENIWATCH_INGEST_SECRET,
+ *   NETLIFY_AUTH_TOKEN, RESEND_API_KEY
+ *
+ * VITE_SUPABASE_ANON_KEY is deliberately absent: the legacy browser variable is
+ * no longer read as configuration. A deployment that still sets it is told to
+ * rename it rather than being silently accepted.
  */
 interface ImportMetaEnv {
   /** Supabase project URL. Required in staging and production. */
   readonly VITE_SUPABASE_URL?: string
-  /** Supabase anon (publishable) key. Required in staging and production. */
-  readonly VITE_SUPABASE_ANON_KEY?: string
+  /**
+   * Supabase **publishable** key (`sb_publishable_...`). Required in staging
+   * and production.
+   *
+   * Not the legacy `anon` JWT, and never a secret key: `src/lib/env.ts`
+   * refuses a value shaped like `sb_secret_...` or like a JWT.
+   */
+  readonly VITE_SUPABASE_PUBLISHABLE_KEY?: string
   readonly VITE_DEFAULT_ORG_NAME?: string
   /** "true" enables the signal simulator. Never honoured in production. */
   readonly VITE_ENABLE_SIMULATOR?: string

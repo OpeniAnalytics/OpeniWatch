@@ -45,6 +45,7 @@ async function buildAndServe(env: Record<string, string>): Promise<Fixture> {
       // Start from a clean slate so the developer's own shell cannot leak in
       // and make a "missing variable" case quietly pass.
       VITE_SUPABASE_URL: '',
+      VITE_SUPABASE_PUBLISHABLE_KEY: '',
       VITE_SUPABASE_ANON_KEY: '',
       VITE_ENVIRONMENT_LABEL: '',
       VITE_ENABLE_LOCAL_DEMO: '',
@@ -106,7 +107,7 @@ test.describe('Staging never silently falls back to demo mode', () => {
   test('names the missing variables and nothing else', async ({ page }) => {
     await page.goto(fixture.url)
     await expect(page.getByText('VITE_SUPABASE_URL')).toBeVisible()
-    await expect(page.getByText('VITE_SUPABASE_ANON_KEY')).toBeVisible()
+    await expect(page.getByText('VITE_SUPABASE_PUBLISHABLE_KEY')).toBeVisible()
     // A reference code an administrator can quote safely.
     await expect(page.getByText(/OW-CFG-STG-UK/)).toBeVisible()
   })
@@ -194,7 +195,8 @@ test.describe('Supabase configuration selects the Supabase provider', () => {
       // A syntactically valid project that does not exist. The point is which
       // provider is chosen, which is decided before any request is made.
       VITE_SUPABASE_URL: 'https://staging-fixture.supabase.co',
-      VITE_SUPABASE_ANON_KEY: 'fixture-anon-key',
+      // A publishable key, which is what the browser is now configured with.
+      VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_fixtureKEY000000000000',
       VITE_ENVIRONMENT_LABEL: 'Staging',
     })
   })

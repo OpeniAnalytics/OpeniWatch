@@ -19,7 +19,14 @@ export type DeploymentEnvironment = 'development' | 'staging' | 'production'
 
 export interface BrowserEnv {
   supabaseUrl: string
-  supabaseAnonKey: string
+  /**
+   * The Supabase **publishable** key (`sb_publishable_...`).
+   *
+   * Not the legacy `anon` JWT. Publishable keys rotate independently of the
+   * project's JWT signing secret, so revoking one does not invalidate every
+   * live session, and they are not confusable with a secret key by shape.
+   */
+  supabasePublishableKey: string
   defaultOrgName: string
   enableSimulator: boolean
   spyglassBaseUrl: string
@@ -53,12 +60,44 @@ export type Configuration =
       missing: string[]
       /** Variable NAMES whose value is present but unusable. Never a value. */
       invalid: string[]
+      /**
+       * True when the deployment still sets the legacy browser variable.
+       *
+       * Lets the configuration screen say "rename this" rather than "this is
+       * missing", which is the difference between a two-minute fix and an hour
+       * of wondering why a key that is plainly present is not being read.
+       */
+      legacyVariableInUse: boolean
       /** Stable, non-sensitive code an administrator can quote in a ticket. */
       reference: string
     }
 
 /** The two variables the browser needs in order to reach the real backend. */
-export const REQUIRED_SUPABASE_VARS = ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'] as const
+export const REQUIRED_SUPABASE_VARS = [
+  'VITE_SUPABASE_URL',
+  'VITE_SUPABASE_PUBLISHABLE_KEY',
+] as const
+
+/**
+ * The legacy browser variable, named here only so it can be recognised and
+ * refused. It is never read as a source of configuration.
+ */
+export const LEGACY_BROWSER_KEY_VAR = 'VITE_SUPABASE_ANON_KEY'
+
+/** Shape of a Supabase publishable key. Browser-safe by design. */
+const PUBLISHABLE_KEY_PATTERN = /^sb_publishable_[A-Za-z0-9_-]{10,}$/
+
+/**
+ * Shape of a Supabase **secret** key. Recognised so it can be refused.
+ *
+ * A secret key in a `VITE_` variable would be compiled into a JavaScript file
+ * that anyone can download. Detecting it by shape means the mistake fails the
+ * build's own configuration check rather than shipping.
+ */
+const SECRET_KEY_PATTERN = /^sb_secret_/
+
+/** A legacy JWT-format key (`anon` or `service_role`). */
+const LEGACY_JWT_PATTERN = /^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/
 
 type RawEnv = Record<string, unknown>
 
@@ -113,7 +152,7 @@ function configurationReference(
   const scope = { development: 'DEV', staging: 'STG', production: 'PRD' }[deployment]
   const flags = [
     missing.includes('VITE_SUPABASE_URL') ? 'U' : '',
-    missing.includes('VITE_SUPABASE_ANON_KEY') ? 'K' : '',
+    missing.includes('VITE_SUPABASE_PUBLISHABLE_KEY') ? 'K' : '',
     invalid.length > 0 ? 'X' : '',
   ]
     .filter(Boolean)
@@ -145,11 +184,21 @@ export function resolveConfiguration(raw: RawEnv): Configuration {
   const deployment = normalizeEnvironment(environmentLabel)
 
   const supabaseUrl = readString(raw, 'VITE_SUPABASE_URL')
-  const supabaseAnonKey = readString(raw, 'VITE_SUPABASE_ANON_KEY')
+  const supabasePublishableKey = readString(raw, 'VITE_SUPABASE_PUBLISHABLE_KEY')
+  /*
+   * Read only to detect it, never to use it.
+   *
+   * The legacy variable is deliberately NOT a fallback. A silent fallback would
+   * mean a deployment that "works" while still authenticating with a legacy
+   * anon JWT, and nobody would find out until the key was rotated. A
+   * deployment that still has only the old variable set must fail closed and
+   * say which name to use.
+   */
+  const legacyBrowserKey = readString(raw, LEGACY_BROWSER_KEY_VAR)
 
   const env: BrowserEnv = {
     supabaseUrl,
-    supabaseAnonKey,
+    supabasePublishableKey,
     defaultOrgName: readString(raw, 'VITE_DEFAULT_ORG_NAME', 'Openi Security Services'),
     // Explicit opt-in only. Previously this defaulted to on, which meant a
     // deployment had to remember to switch it off. See docs/SECURITY.md.
@@ -165,7 +214,29 @@ export function resolveConfiguration(raw: RawEnv): Configuration {
   const invalid: string[] = []
   if (!supabaseUrl) missing.push('VITE_SUPABASE_URL')
   else if (!isUsableUrl(supabaseUrl)) invalid.push('VITE_SUPABASE_URL')
-  if (!supabaseAnonKey) missing.push('VITE_SUPABASE_ANON_KEY')
+
+  if (!supabasePublishableKey) {
+    missing.push('VITE_SUPABASE_PUBLISHABLE_KEY')
+  } else if (SECRET_KEY_PATTERN.test(supabasePublishableKey)) {
+    /*
+     * A secret key in the browser variable.
+     *
+     * This is the most damaging configuration mistake available here: an
+     * `sb_secret_` key bypasses Row Level Security entirely, and a VITE_
+     * variable is compiled into a file anyone can download. Refusing by shape
+     * turns it into a blocking screen instead of a silent full-database
+     * disclosure.
+     */
+    invalid.push('VITE_SUPABASE_PUBLISHABLE_KEY')
+  } else if (LEGACY_JWT_PATTERN.test(supabasePublishableKey)) {
+    // A legacy anon JWT pasted under the new name. It would very likely work
+    // against Supabase today, which is exactly why it is refused here: the
+    // migration would look complete while the deployment still depended on a
+    // key the project is trying to retire.
+    invalid.push('VITE_SUPABASE_PUBLISHABLE_KEY')
+  } else if (!PUBLISHABLE_KEY_PATTERN.test(supabasePublishableKey)) {
+    invalid.push('VITE_SUPABASE_PUBLISHABLE_KEY')
+  }
 
   if (missing.length === 0 && invalid.length === 0) {
     return { status: 'supabase', env }
@@ -176,6 +247,10 @@ export function resolveConfiguration(raw: RawEnv): Configuration {
     env,
     missing,
     invalid,
+    // A legacy anon JWT or a publishable key sitting under the old name both
+    // count: either way the fix is to set VITE_SUPABASE_PUBLISHABLE_KEY.
+    // Set at all, whatever it contains: either way the fix is the same.
+    legacyVariableInUse: legacyBrowserKey.length > 0,
     reference: configurationReference(deployment, missing, invalid),
   }
 

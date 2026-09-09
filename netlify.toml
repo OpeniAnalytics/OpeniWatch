@@ -34,6 +34,28 @@
   status = 200
   force = false
 
+# Authentication routes.
+#
+# /auth/callback receives the operator back from Microsoft; /auth/confirm
+# receives them from an emailed magic link. Both are client-side routes with no
+# file behind them, so they rely on the SPA fallback below serving index.html —
+# which it does, via the /* rule. They are named explicitly anyway, because a
+# future redirect rule inserted above the catch-all would break sign-in in a way
+# that looks like an OAuth misconfiguration rather than a routing one.
+#
+# Neither may be cached: both are entered with single-use credentials in the
+# query string, and a cached response would serve a stale document to a fresh
+# credential.
+[[redirects]]
+  from = "/auth/callback"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/auth/confirm"
+  to = "/index.html"
+  status = 200
+
 # SPA fallback: client-side routes such as /alerts/<id> must serve index.html.
 [[redirects]]
   from = "/*"
@@ -103,3 +125,10 @@
   for = "/index.html"
   [headers.values]
     Cache-Control = "no-cache"
+
+# Sign-in entry points carry single-use credentials in the query string and must
+# never be served from a cache.
+[[headers]]
+  for = "/auth/*"
+  [headers.values]
+    Cache-Control = "no-store"

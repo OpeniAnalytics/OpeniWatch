@@ -92,10 +92,12 @@ Deno.serve(async (request: Request) => {
   if (request.method !== 'POST') return json({ error: 'Method not allowed. Use POST.' }, 405)
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  // Elevated project access, read from the SUPABASE_SECRET_KEYS dictionary
+  // Supabase injects. Not a JWT — see _shared/supabase-keys.ts.
+  const secretKey = getSecretKey()
   const secret = Deno.env.get('OPENIWATCH_INGEST_SECRET') ?? ''
 
-  if (!supabaseUrl || !serviceRoleKey || !secret) {
+  if (!supabaseUrl || !secretKey || !secret) {
     console.error('escalate-unacknowledged: required environment configuration is missing')
     return json({ error: 'The escalator is not configured.' }, 503)
   }
@@ -113,7 +115,7 @@ Deno.serve(async (request: Request) => {
     return json({ error: 'Body must be valid JSON.' }, 400)
   }
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey, {
+  const supabase = createClient(supabaseUrl, secretKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
 
