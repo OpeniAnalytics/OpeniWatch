@@ -4,9 +4,13 @@ import { env, isSupabaseConfigured } from '@/lib/env'
 /**
  * Supabase browser client.
  *
- * Created with the anon key only. The service-role key is never imported into
- * `src/` — it exists solely in the Edge Function environment, where it is used
- * by the ingest endpoint.
+ * Created with the **publishable** key (`sb_publishable_...`) only — never the
+ * legacy `anon` JWT, and never a secret key. `src/lib/env.ts` refuses to
+ * resolve a configuration whose browser key has the shape of an
+ * `sb_secret_...` value, so a secret cannot reach this call even by mistake.
+ *
+ * The secret key is never imported into `src/`. It exists only in the Edge
+ * Function environment and in server-side scripts.
  *
  * Two auth options below are load-bearing and easy to get wrong:
  *
@@ -29,11 +33,11 @@ let client: SupabaseClient | null = null
 export function getSupabaseClient(): SupabaseClient {
   if (!isSupabaseConfigured) {
     throw new Error(
-      'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY, or set VITE_ENABLE_LOCAL_DEMO=true for local demo mode.',
+      'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY, or set VITE_ENABLE_LOCAL_DEMO=true for local demo mode.',
     )
   }
   if (!client) {
-    client = createClient(env.supabaseUrl, env.supabaseAnonKey, {
+    client = createClient(env.supabaseUrl, env.supabasePublishableKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,

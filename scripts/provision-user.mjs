@@ -2,12 +2,12 @@
 /**
  * Provisions one authorized OpeniWatch user.
  *
- * SERVER-SIDE ONLY. This uses the Supabase service-role key, which bypasses
+ * SERVER-SIDE ONLY. This uses the Supabase secret key, which bypasses
  * Row Level Security entirely. It must never run in a browser, never be bundled
  * by Vite, and never have its key placed in a Netlify environment variable.
  *
  *   SUPABASE_URL=https://<ref>.supabase.co \
- *   SUPABASE_SERVICE_ROLE_KEY=<service-role-key> \
+ *   SUPABASE_SECRET_KEY=<sb_secret_...> \
  *   node scripts/provision-user.mjs \
  *     --email person@company.com \
  *     --name "Casey Rivera" \
@@ -48,6 +48,39 @@
 
 import { createClient } from '@supabase/supabase-js'
 
+/**
+ * Supabase credential.
+ *
+ * SUPABASE_SECRET_KEY holds an `sb_secret_...` value from
+ * Project Settings -> API Keys. It bypasses Row Level Security completely, so
+ * it belongs only in a server-side shell: never in a VITE_ variable, never in
+ * a Netlify build environment, never in source control.
+ *
+ * The legacy `service_role` JWT is not accepted. Falling back to it would let
+ * this script keep working after the migration while still depending on a key
+ * the project is retiring.
+ */
+function requireSecretKey() {
+  const key = process.env.SUPABASE_SECRET_KEY
+  if (!key) {
+    console.error(
+      'SUPABASE_SECRET_KEY is not set.\n' +
+        'Copy the sb_secret_... value from Project Settings -> API Keys.\n' +
+        'Do not use the Legacy API keys page, and do not use a service_role JWT.',
+    )
+    process.exit(1)
+  }
+  if (!/^sb_secret_/.test(key)) {
+    console.error(
+      'SUPABASE_SECRET_KEY does not look like a secret key.\n' +
+        'Expected a value beginning sb_secret_ from Project Settings -> API Keys.',
+    )
+    process.exit(1)
+  }
+  return key
+}
+
+
 const VALID_ROLES = [
   'super_admin',
   'program_admin',
@@ -82,7 +115,7 @@ function usage(message) {
   console.error(`${message}
 
 Usage:
-  SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \\
+  SUPABASE_URL=... SUPABASE_SECRET_KEY=... \\
   node scripts/provision-user.mjs --email <address> --name "<full name>" \\
     --role <${VALID_ROLES.join('|')}> --org <organization-slug> [--program <program-slug>]
 
@@ -93,10 +126,10 @@ Optional: --title "<job title>" --phone "<number>" --time-zone <IANA zone> --dry
 const args = parseArgs(process.argv.slice(2))
 
 const SUPABASE_URL = process.env.SUPABASE_URL
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+const SECRET_KEY = requireSecretKey()
 
-if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-  usage('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must both be set in the environment.')
+if (!SUPABASE_URL || !SECRET_KEY) {
+  usage('SUPABASE_URL and SUPABASE_SECRET_KEY must both be set in the environment.')
 }
 if (!args.email || !args.email.includes('@')) usage('--email is required and must be an address.')
 if (!args.name) usage('--name is required.')
@@ -108,7 +141,7 @@ if (!args.org) usage('--org is required (the organization slug).')
 const email = args.email.trim().toLowerCase()
 const dryRun = Boolean(args.dryRun)
 
-const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+const supabase = createClient(SUPABASE_URL, SECRET_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 })
 

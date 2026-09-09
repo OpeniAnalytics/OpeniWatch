@@ -27,7 +27,7 @@ supabase link --project-ref <staging-ref>
 supabase db push
 
 SUPABASE_URL=https://<ref>.supabase.co \
-SUPABASE_SERVICE_ROLE_KEY=<service-role> \
+SUPABASE_SECRET_KEY=<sb_secret_...> \
 OPENIWATCH_SEED_PASSWORD='<strong password>' \
 npm run seed:users -- --allow-production
 
@@ -44,7 +44,7 @@ Netlify environment:
 
 ```
 VITE_SUPABASE_URL=https://<ref>.supabase.co
-VITE_SUPABASE_ANON_KEY=<anon>
+VITE_SUPABASE_PUBLISHABLE_KEY=<sb_publishable_...>
 VITE_ENVIRONMENT_LABEL=Staging
 VITE_ENABLE_SIMULATOR=false
 VITE_ONESIGNAL_APP_ID=<app-id>
@@ -62,7 +62,7 @@ to anyone outside the team.
 ## Automated
 
 ```bash
-SUPABASE_URL=... SUPABASE_ANON_KEY=... SUPABASE_SERVICE_ROLE_KEY=... \
+SUPABASE_URL=... SUPABASE_PUBLISHABLE_KEY=... SUPABASE_SECRET_KEY=... \
 OPENIWATCH_INGEST_SECRET=... OPENIWATCH_SEED_PASSWORD=... \
 NETLIFY_SITE_URL=https://<staging-site> \
 npm run validate:staging
@@ -72,7 +72,7 @@ Covers: authentication for all six roles; every role restriction through
 authenticated sessions; cross-tenant isolation including lookup by UUID;
 ingestion rejection and acceptance cases including replay; the full lifecycle
 with a timeline; Realtime; both Edge Functions including escalation idempotency;
-and a scan of the deployed bundle for the service-role key.
+and a scan of the deployed bundle for the secret key.
 
 Exits non-zero on any failure and prints each one.
 
@@ -149,7 +149,7 @@ Exits non-zero on any failure and prints each one.
 
 ### Safety
 
-- [ ] Bundle contains no service-role key (`validate:staging` checks this)
+- [ ] Bundle contains no secret key (`validate:staging` checks this)
 - [ ] Kill switch: turning off outbound notifications shows the banner, and new
       deliveries record `disabled`
 - [ ] SMS records `disabled`, never `sent` or `simulated` *(locally covered)*

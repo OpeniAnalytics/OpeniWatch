@@ -2,9 +2,18 @@
 
 **Status: implemented, verified locally, not verified against Microsoft or
 Resend.** Every flow is written and unit-tested against a mocked auth client.
-Nothing has been exercised against a live Entra tenant, a live Supabase project
-or live SMTP, because no OpeniWatch Supabase project exists yet and this
-environment has no route to any of those services.
+
+The OpeniWatch Supabase project **does** exist — `dbbmlufrefctmxgitosx` — and
+its schema is fully migrated and seeded. A previous revision of this document
+said no project existed; that was wrong. The project sits in a different
+Supabase organization from the one an account-wide listing returned, and the
+earlier search concluded from an incomplete list rather than querying the
+project reference directly.
+
+What remains unverified is anything requiring a browser against the live
+services: no Entra tenant round trip, no Resend delivery, no live magic link.
+This environment reaches Supabase and Netlify only through their management
+APIs, and has no network route to the deployed site itself.
 
 ---
 
@@ -180,7 +189,7 @@ Netlify variable.
 
 ```bash
 SUPABASE_URL=https://<ref>.supabase.co \
-SUPABASE_SERVICE_ROLE_KEY=<service-role-key> \
+SUPABASE_SECRET_KEY=<sb_secret_...> \
 node scripts/provision-user.mjs \
   --email person@company.com \
   --name "Casey Rivera" \
@@ -232,7 +241,7 @@ existed before the run are left alone on rollback.
 - sign-out clears session, authorization state and OneSignal identity;
 - OneSignal identity association still follows the session;
 - no password field, no signup, no password reset;
-- no service-role key, SMTP credential or Azure secret in the built bundle.
+- no secret key, SMTP credential or Azure secret in the built bundle.
 
 **Not verified — requires live services:**
 
@@ -246,7 +255,9 @@ existed before the run are left alone on rollback.
   the deployment;
 - session restoration against a real Supabase session after a refresh.
 
-**No OpeniWatch Supabase project exists yet.** The migrations have never been
-applied to any project in this account, so there is nowhere to configure the
-Azure provider or Resend SMTP. That is the first blocker, ahead of everything
-else in this document.
+**Supabase Auth configuration cannot be read or written from here.** The
+Supabase MCP control plane exposes the database, migrations, Edge Functions and
+API keys, but not Auth settings — Site URL, redirect URLs, the Azure provider
+and SMTP are dashboard-only, and this environment holds no
+`SUPABASE_ACCESS_TOKEN` and has no route to the Management API. Those steps are
+listed as manual actions and have not been performed.

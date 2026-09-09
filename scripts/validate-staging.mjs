@@ -16,7 +16,7 @@
  *
  *   SUPABASE_URL=https://<ref>.supabase.co \
  *   SUPABASE_ANON_KEY=<anon-key> \
- *   SUPABASE_SERVICE_ROLE_KEY=<service-role-key> \
+ *   SUPABASE_SECRET_KEY=<sb_secret_...> \
  *   OPENIWATCH_INGEST_SECRET=<ingest-secret> \
  *   OPENIWATCH_SEED_PASSWORD=<the password used by seed-users.mjs> \
  *   node scripts/validate-staging.mjs
@@ -33,9 +33,42 @@
 
 import { createClient } from '@supabase/supabase-js'
 
+/**
+ * Supabase credential.
+ *
+ * SUPABASE_SECRET_KEY holds an `sb_secret_...` value from
+ * Project Settings -> API Keys. It bypasses Row Level Security completely, so
+ * it belongs only in a server-side shell: never in a VITE_ variable, never in
+ * a Netlify build environment, never in source control.
+ *
+ * The legacy `service_role` JWT is not accepted. Falling back to it would let
+ * this script keep working after the migration while still depending on a key
+ * the project is retiring.
+ */
+function requireSecretKey() {
+  const key = process.env.SUPABASE_SECRET_KEY
+  if (!key) {
+    console.error(
+      'SUPABASE_SECRET_KEY is not set.\n' +
+        'Copy the sb_secret_... value from Project Settings -> API Keys.\n' +
+        'Do not use the Legacy API keys page, and do not use a service_role JWT.',
+    )
+    process.exit(1)
+  }
+  if (!/^sb_secret_/.test(key)) {
+    console.error(
+      'SUPABASE_SECRET_KEY does not look like a secret key.\n' +
+        'Expected a value beginning sb_secret_ from Project Settings -> API Keys.',
+    )
+    process.exit(1)
+  }
+  return key
+}
+
+
 const url = process.env.SUPABASE_URL
 const anonKey = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+const serviceKey = process.env.SUPABASE_SECRET_KEY
 const ingestSecret = process.env.OPENIWATCH_INGEST_SECRET
 const seedPassword = process.env.OPENIWATCH_SEED_PASSWORD
 
@@ -46,7 +79,7 @@ const asJson = args.has('--json')
 
 if (!url || !anonKey || !serviceKey) {
   console.error(
-    'SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY are required.\n' +
+    'SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SECRET_KEY are required.\n' +
       'See docs/STAGING_ACCEPTANCE.md.',
   )
   process.exit(1)
@@ -831,7 +864,7 @@ async function testBundleSafety(siteUrl) {
         if (body.includes(needle)) leaked.push(`${src} contains ${needle.slice(0, 12)}…`)
       }
     }
-    record(sec, 'no service-role key or ingest secret in the bundle', leaked.length === 0, leaked.join('; '))
+    record(sec, 'no secret key or ingest secret in the bundle', leaked.length === 0, leaked.join('; '))
   } catch (error) {
     record(sec, 'bundle scan', false, error.message)
   }

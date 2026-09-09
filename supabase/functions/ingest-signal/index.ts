@@ -29,16 +29,18 @@ const MAX_BODY_BYTES = 512 * 1024
 
 interface IngestEnv {
   supabaseUrl: string
-  serviceRoleKey: string
+  secretKey: string
   ingestSecret: string
 }
 
 function readEnv(): IngestEnv | null {
   const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  // Elevated project access, read from the SUPABASE_SECRET_KEYS dictionary
+  // Supabase injects. Not a JWT — see _shared/supabase-keys.ts.
+  const secretKey = getSecretKey()
   const ingestSecret = Deno.env.get('OPENIWATCH_INGEST_SECRET') ?? ''
-  if (!supabaseUrl || !serviceRoleKey || !ingestSecret) return null
-  return { supabaseUrl, serviceRoleKey, ingestSecret }
+  if (!supabaseUrl || !secretKey || !ingestSecret) return null
+  return { supabaseUrl, secretKey, ingestSecret }
 }
 
 /** Length-independent comparison so the secret cannot be probed by timing. */
@@ -123,7 +125,7 @@ Deno.serve(async (request: Request) => {
     return json({ error: 'Payload too large.' }, 413)
   }
 
-  const supabase = createClient(env.supabaseUrl, env.serviceRoleKey, {
+  const supabase = createClient(env.supabaseUrl, env.secretKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
 

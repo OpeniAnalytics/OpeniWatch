@@ -19,7 +19,9 @@ import {
 
 const SUPABASE = {
   VITE_SUPABASE_URL: 'https://example-ref.supabase.co',
-  VITE_SUPABASE_ANON_KEY: 'anon-key-for-tests',
+  // A publishable key, shaped like the real thing. Not a secret: publishable
+  // keys are designed to ship in a browser bundle.
+  VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_TESTKEYvalue0000000000',
 }
 
 describe('normalizeEnvironment', () => {
@@ -69,7 +71,7 @@ describe('2. local demo not explicitly enabled', () => {
     const config = resolveConfiguration({})
     expect(config.status).toBe('blocked')
     if (config.status !== 'blocked') return
-    expect(config.missing).toEqual(['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'])
+    expect(config.missing).toEqual(['VITE_SUPABASE_URL', 'VITE_SUPABASE_PUBLISHABLE_KEY'])
   })
 
   it('is the regression guard: an empty environment is not an invitation to fake data', () => {
@@ -99,7 +101,7 @@ describe('3. staging with complete Supabase configuration', () => {
 describe('4. staging with a missing URL', () => {
   it('blocks and names only the missing variable', () => {
     const config = resolveConfiguration({
-      VITE_SUPABASE_ANON_KEY: SUPABASE.VITE_SUPABASE_ANON_KEY,
+      VITE_SUPABASE_PUBLISHABLE_KEY: SUPABASE.VITE_SUPABASE_PUBLISHABLE_KEY,
       VITE_ENVIRONMENT_LABEL: 'Staging',
     })
     expect(config.status).toBe('blocked')
@@ -136,7 +138,7 @@ describe('5. staging with a missing key', () => {
     })
     expect(config.status).toBe('blocked')
     if (config.status !== 'blocked') return
-    expect(config.missing).toEqual(['VITE_SUPABASE_ANON_KEY'])
+    expect(config.missing).toEqual(['VITE_SUPABASE_PUBLISHABLE_KEY'])
     expect(config.reference).toBe('OW-CFG-STG-K')
   })
 })
@@ -146,7 +148,7 @@ describe('6. production with missing configuration', () => {
     const config = resolveConfiguration({ VITE_ENVIRONMENT_LABEL: 'Production' })
     expect(config.status).toBe('blocked')
     if (config.status !== 'blocked') return
-    expect(config.missing).toEqual(['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'])
+    expect(config.missing).toEqual(['VITE_SUPABASE_URL', 'VITE_SUPABASE_PUBLISHABLE_KEY'])
     expect(config.reference).toBe('OW-CFG-PRD-UK')
   })
 

@@ -8,7 +8,7 @@
  * development password:
  *
  *   SUPABASE_URL=... \
- *   SUPABASE_SERVICE_ROLE_KEY=... \
+ *   SUPABASE_SECRET_KEY=... \
  *   OPENIWATCH_SEED_PASSWORD='a-strong-development-password' \
  *   node scripts/seed-users.mjs
  *
@@ -22,6 +22,39 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
+
+/**
+ * Supabase credential.
+ *
+ * SUPABASE_SECRET_KEY holds an `sb_secret_...` value from
+ * Project Settings -> API Keys. It bypasses Row Level Security completely, so
+ * it belongs only in a server-side shell: never in a VITE_ variable, never in
+ * a Netlify build environment, never in source control.
+ *
+ * The legacy `service_role` JWT is not accepted. Falling back to it would let
+ * this script keep working after the migration while still depending on a key
+ * the project is retiring.
+ */
+function requireSecretKey() {
+  const key = process.env.SUPABASE_SECRET_KEY
+  if (!key) {
+    console.error(
+      'SUPABASE_SECRET_KEY is not set.\n' +
+        'Copy the sb_secret_... value from Project Settings -> API Keys.\n' +
+        'Do not use the Legacy API keys page, and do not use a service_role JWT.',
+    )
+    process.exit(1)
+  }
+  if (!/^sb_secret_/.test(key)) {
+    console.error(
+      'SUPABASE_SECRET_KEY does not look like a secret key.\n' +
+        'Expected a value beginning sb_secret_ from Project Settings -> API Keys.',
+    )
+    process.exit(1)
+  }
+  return key
+}
+
 
 const ORG_ID = 'a0000000-0000-4000-8000-000000000001'
 const PROGRAM_ID = 'a0000000-0000-4000-8000-000000000002'
@@ -79,12 +112,12 @@ const SEED_USERS = [
 ]
 
 const url = process.env.SUPABASE_URL
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+const serviceRoleKey = process.env.SUPABASE_SECRET_KEY
 const allowProduction = process.argv.includes('--allow-production')
 
 if (!url || !serviceRoleKey) {
   console.error(
-    'SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.\n' +
+    'SUPABASE_URL and SUPABASE_SECRET_KEY are required.\n' +
       'Find them in your Supabase project settings, or run `supabase status` for a local stack.',
   )
   process.exit(1)

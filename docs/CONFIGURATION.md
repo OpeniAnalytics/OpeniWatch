@@ -41,7 +41,7 @@ browser build by design.
 | Variable | Required | Meaning |
 | --- | --- | --- |
 | `VITE_SUPABASE_URL` | **Yes**, in any deployment | Supabase project URL. Must parse as an absolute http(s) URL |
-| `VITE_SUPABASE_ANON_KEY` | **Yes**, in any deployment | Supabase anon (publishable) key |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | **Yes**, in any deployment | Supabase publishable key |
 | `VITE_ENVIRONMENT_LABEL` | Recommended | `Staging` or `Production` switch on fail-closed handling. Shown as a compact header badge |
 | `VITE_ENABLE_LOCAL_DEMO` | No | `true` permits browser-local demo data. **Ignored in staging and production** |
 | `VITE_ENABLE_SIMULATOR` | No | `true` enables the signal simulator. **Never honoured in production** |
@@ -56,7 +56,7 @@ These are server-side only. A `VITE_` alias for any of them would inline the
 secret into a file anyone can download:
 
 ```
-SUPABASE_SERVICE_ROLE_KEY   SUPABASE_ACCESS_TOKEN   SUPABASE_DB_PASSWORD
+SUPABASE_SECRET_KEY   SUPABASE_ACCESS_TOKEN   SUPABASE_DB_PASSWORD
 ONESIGNAL_REST_API_KEY      OPENIWATCH_INGEST_SECRET   NETLIFY_AUTH_TOKEN
 TWILIO_AUTH_TOKEN           ZIGNAL_API_KEY
 ```
@@ -148,7 +148,7 @@ and must be asked for.
 
 ```
 VITE_SUPABASE_URL=https://<project-ref>.supabase.co
-VITE_SUPABASE_ANON_KEY=<anon key>
+VITE_SUPABASE_PUBLISHABLE_KEY=<anon key>
 VITE_ENVIRONMENT_LABEL=Staging
 VITE_ENABLE_SIMULATOR=false
 VITE_ENABLE_LOCAL_DEMO=false

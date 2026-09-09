@@ -115,7 +115,7 @@ stored in source control**:
 
 ```bash
 SUPABASE_URL=http://127.0.0.1:54321 \
-SUPABASE_SERVICE_ROLE_KEY=<service-role-key> \
+SUPABASE_SECRET_KEY=<sb_secret_...> \
 OPENIWATCH_SEED_PASSWORD='a-strong-development-password' \
 npm run seed:users
 ```

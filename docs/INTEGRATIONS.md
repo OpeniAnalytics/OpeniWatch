@@ -70,7 +70,7 @@ Response:
 }
 ```
 
-**Requires** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and
+**Requires** `SUPABASE_URL`, `SUPABASE_SECRET_KEY` and
 `OPENIWATCH_INGEST_SECRET` set as function secrets. Generate the secret with
 `openssl rand -hex 32`.
 

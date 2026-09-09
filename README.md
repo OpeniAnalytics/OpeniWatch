@@ -125,7 +125,7 @@ Local demo mode needs nothing. To run against a real Supabase project:
 
    ```bash
    SUPABASE_URL=http://127.0.0.1:54321 \
-   SUPABASE_SERVICE_ROLE_KEY=<service-role-key> \
+   SUPABASE_SECRET_KEY=<sb_secret_...> \
    OPENIWATCH_SEED_PASSWORD='choose-a-strong-development-password' \
    npm run seed:users
    ```
@@ -136,7 +136,7 @@ Local demo mode needs nothing. To run against a real Supabase project:
 
    ```
    VITE_SUPABASE_URL=https://<project-ref>.supabase.co
-   VITE_SUPABASE_ANON_KEY=<anon-key>
+   VITE_SUPABASE_PUBLISHABLE_KEY=<sb_publishable_...>
    ```
 
 6. **Deploy the ingest function** (optional, for webhook ingestion):
@@ -178,7 +178,7 @@ Full annotated list in [`.env.example`](.env.example). Summary:
 | Variable | Purpose |
 | --- | --- |
 | `VITE_SUPABASE_URL` | Supabase project URL. **Required** in any deployment. |
-| `VITE_SUPABASE_ANON_KEY` | Supabase anon key. **Required** in any deployment. |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable key (`sb_publishable_...`). **Required** in any deployment. |
 | `VITE_ENVIRONMENT_LABEL` | `Staging` / `Production` switch on fail-closed configuration. |
 | `VITE_ENABLE_LOCAL_DEMO` | `true` permits browser-local demo data. Ignored in staging and production. |
 | `VITE_DEFAULT_ORG_NAME` | Display name for the seeded organization. |
@@ -190,7 +190,7 @@ Full annotated list in [`.env.example`](.env.example). Summary:
 
 | Variable | Purpose |
 | --- | --- |
-| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Used by Edge Functions and the seed script. |
+| `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | Used by Edge Functions and the seed script. |
 | `OPENIWATCH_INGEST_SECRET` | Shared secret required by the ingest endpoint. |
 | `ONESIGNAL_APP_ID`, `ONESIGNAL_REST_API_KEY` | Web push. |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` | SMS fallback (interface only in Phase 1). |
