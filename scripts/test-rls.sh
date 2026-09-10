@@ -37,9 +37,13 @@ create schema if not exists auth;
 create schema if not exists extensions;
 create extension if not exists pgcrypto with schema extensions;
 
+-- encrypted_password is modelled because migration 0014 reads it: provisioning
+-- refuses to authorize an account that still carries a password credential, and
+-- a shim without the column would let that migration fail unnoticed.
 create table if not exists auth.users (
   id uuid primary key default gen_random_uuid(),
-  email text
+  email text,
+  encrypted_password text
 );
 
 -- Supabase derives auth.uid() from the request JWT. Locally it reads the same
@@ -124,12 +128,31 @@ printf '%s\n' "$SHIM" | "${PSQL[@]}" -v ON_ERROR_STOP=1 -q -f -
 
 apply_migrations() {
   for f in supabase/migrations/*.sql; do
-    "${PSQL[@]}" -v ON_ERROR_STOP=1 -q -f "$f" 2>&1 | grep -v 'does not exist, skipping' || true
+    # The grep filters "does not exist, skipping" noise from the guarded DROPs
+    # that make these migrations re-runnable. Piping means $? is grep's, and a
+    # trailing `|| true` used to swallow psql's status entirely — so a migration
+    # that failed outright still reported "applied cleanly". PIPESTATUS keeps
+    # the filtering and restores the failure.
+    set +e
+    "${PSQL[@]}" -v ON_ERROR_STOP=1 -q -f "$f" 2>&1 | grep -v 'does not exist, skipping'
+    local status=${PIPESTATUS[0]}
+    set -e
+    if [ "$status" -ne 0 ]; then
+      echo "MIGRATION FAILED: $f" >&2
+      return 1
+    fi
   done
 }
 
 echo "Applying migrations"
 apply_migrations
+
+# Function privileges are checked HERE, against one pass, because that is what a
+# production database has. 0009 grants execute on all functions in the openiwatch
+# schema, which only covers the ones that exist when it runs; replaying the
+# migrations grants the later ones too and papers over the difference.
+echo "Checking function privileges against a single pass"
+"${PSQL[@]}" -v ON_ERROR_STOP=1 -f supabase/tests/function_privileges.sql
 
 echo "Re-applying migrations to prove repeatability"
 apply_migrations

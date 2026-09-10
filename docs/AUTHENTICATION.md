@@ -205,6 +205,57 @@ node scripts/provision-user.mjs \
 It creates the auth user with `email_confirm: true` and **no password**, then
 the profile, organization membership, optional program membership and role.
 
+The decisions live in `scripts/lib/provisionUser.mjs` and talk to a small store
+port; `scripts/lib/supabaseStore.mjs` is the Supabase adapter. That split is
+what makes the rules testable — a PostgREST chain is close to untestable without
+a live database, and these rules are a security boundary.
+
+### It refuses an account that still has a password
+
+Removing the password field from the sign-in screen does not stop Supabase
+accepting `grant_type=password`. Provisioning is therefore where an account
+carrying a password credential is actually turned away:
+
+```
+Refused (password_credential_present):
+
+casey@example.com already has a password credential.
+```
+
+Nothing is granted by a refused run — no profile, no membership, no role. The
+`--allow-password-credential` flag exists for an operator who has confirmed the
+project rejects password grants, and every run that uses it says so in the
+output and in the result's `warnings`.
+
+Observing the credential needs help from the database. GoTrue redacts
+`encrypted_password` from every Admin API response and `auth.users` is not in
+PostgREST's exposed schemas, so migration 0014 publishes
+`public.openiwatch_user_has_password(uuid)` — a boolean, `service_role` only,
+and the hash never leaves the database. Without it the check would run and
+silently never fire, which is worse than not having it: the script would report
+the account as compliant.
+
+### It is idempotent, and it adopts rather than duplicates
+
+Every step asks what is already there and writes only the difference, so a
+second run reports no changes. An existing account is looked up first and
+adopted — the previous revision called `createUser` and read "already exists"
+out of the failure, which also swallowed real errors. Adoption never resets a
+password, never replaces an Azure identity, and never creates a second account:
+addresses are normalized, so `Casey@Example.com` and `casey@example.com` are one
+person.
+
+It also converges the role. `user_roles_unique_scope` keys on the role itself,
+so upserting a *different* role adds a second row and the user holds both; the
+script removes the surplus instead. The new role is granted before the old ones
+are revoked, deliberately — the reverse order rolls back badly, because undoing
+a removal means calling `createRole`, so if that is what failed the undo fails
+too and the user is left holding nothing.
+
+A membership in a *different* organization stops the run rather than quietly
+widening someone's access across tenants; `--allow-additional-organization`
+says it was intended.
+
 **No invitation is sent.** `createUser` rather than `inviteUserByEmail`, because
 an invite mails on Supabase's schedule with Supabase's wording at a moment the
 administrator did not choose. Provisioning someone and telling them about it are
