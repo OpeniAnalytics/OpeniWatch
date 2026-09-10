@@ -557,30 +557,73 @@ describe('no server-side secret is reachable from the browser', () => {
 })
 
 describe('the provisioning workflow is server-side only', () => {
-  const script = readFileSync('scripts/provision-user.mjs', 'utf8')
+  /*
+   * Provisioning is three files: the command line, the decisions, and the
+   * Supabase adapter. These scan all of them together, because a guarantee that
+   * holds only in the file the test happens to name is not a guarantee — the
+   * previous revision asserted "no password" against the CLI alone, and would
+   * have kept passing if the account creation moved elsewhere and grew one.
+   *
+   * The behaviour of the decisions is covered properly in
+   * src/services/provisioning/provisionUser.test.ts. What is checked here is
+   * what a behavioural test cannot see: that no path anywhere in the surface
+   * sets a password, and that none of it can reach the browser.
+   */
+  const PROVISIONING_FILES = [
+    'scripts/provision-user.mjs',
+    'scripts/lib/provisionUser.mjs',
+    'scripts/lib/supabaseStore.mjs',
+  ]
+  const sources = PROVISIONING_FILES.map((file) => ({
+    file,
+    text: readFileSync(file, 'utf8'),
+  }))
+  const surface = sources.map((source) => source.text).join('\n')
 
   it('creates a confirmed user with no password', () => {
-    expect(script).toMatch(/email_confirm:\s*true/)
-    // No password is set at creation, and none is generated.
-    expect(withoutComments(script)).not.toMatch(/password:\s*\S/)
-    expect(script).not.toMatch(/generatePassword|randomPassword/)
+    expect(surface).toMatch(/email_confirm:\s*true/)
+    expect(surface).not.toMatch(/generatePassword|randomPassword/)
+  })
+
+  it('sets no password on any path, in any of its files', () => {
+    for (const { file, text } of sources) {
+      // Comments stripped: several of these files explain at length why no
+      // password is set, and that prose must not be what makes this pass.
+      expect(withoutComments(text), `${file} sets a password`).not.toMatch(
+        /\bpassword\s*:\s*\S/,
+      )
+    }
   })
 
   it('sends no invitation', () => {
     // A call, not the comment that explains why this one is not used.
-    expect(script).not.toMatch(/inviteUserByEmail\s*\(/)
-    expect(script).toMatch(/admin\.createUser\(/)
+    expect(surface).not.toMatch(/inviteUserByEmail\s*\(/)
+    expect(surface).toMatch(/admin\.createUser\(/)
   })
 
   it('unwinds its own writes when a later step fails', () => {
-    expect(script).toMatch(/rollback/)
-    expect(script).toMatch(/deleteUser/)
+    expect(surface).toMatch(/undo/)
+    expect(surface).toMatch(/deleteAuthUser/)
+    expect(surface).toMatch(/admin\.deleteUser\(/)
+  })
+
+  it('refuses to authorize an account that still has a password', () => {
+    // The enforcement point. Hiding the password field in the UI does not stop
+    // Supabase accepting grant_type=password, so provisioning is where an
+    // account carrying one is actually turned away.
+    expect(surface).toMatch(/password_credential_present/)
+    expect(surface).toMatch(/openiwatch_user_has_password/)
   })
 
   it('is not importable from the browser bundle', () => {
-    const offenders = shippedSourceFiles().filter((file) =>
-      readFileSync(file, 'utf8').includes('provision-user'),
-    )
+    const offenders = shippedSourceFiles().filter((file) => {
+      const text = readFileSync(file, 'utf8')
+      return (
+        text.includes('provision-user') ||
+        text.includes('scripts/lib/') ||
+        text.includes('supabaseStore')
+      )
+    })
     expect(offenders).toEqual([])
   })
 })

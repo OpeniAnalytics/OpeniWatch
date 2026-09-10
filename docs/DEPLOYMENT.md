@@ -130,6 +130,23 @@ of it. The legacy `SUPABASE_SERVICE_ROLE_KEY` is deliberately not consulted.
 > Setting the secret is what turns them on. Until then they fail closed rather
 > than running with a partial configuration.
 
+### Do not add `openiwatch` to Exposed Schemas
+
+`ingest-signal` calls `rpc('check_ingest_rate')`. PostgREST resolves RPC names
+in the exposed schemas — `public` and `graphql_public` — and the function lives
+in `openiwatch`, so before migration 0013 that call could not resolve and the
+endpoint would have answered 503 on every request once its secrets were set.
+
+The obvious fix is the dangerous one. Exposing `openiwatch` publishes every
+helper in it, and `anon` held `EXECUTE` on `openiwatch.run_retention`, which
+deletes signals — so an unauthenticated caller could have purged operational
+data over HTTP. Migration 0013 publishes a single narrow wrapper,
+`public.check_ingest_rate`, granted to `service_role` alone, and withdraws the
+grants that were never needed. `npm run test:rls` asserts both.
+
+If the ingest endpoint ever returns 503 with valid secrets, check that migration
+0013 has been applied. Do not reach for Exposed Schemas.
+
 `supabase/config.toml` sets `verify_jwt = false` for all three. Each
 authenticates its own caller with a shared secret in the `x-openiwatch-secret`
 header, compared in constant time, and returns 401 otherwise. None expects a
@@ -256,7 +273,8 @@ the acceptance check rather than a formality.
 ### Row Level Security
 
 The policies are already verified against real PostgreSQL by `npm run test:rls`,
-which runs 28 scenarios as each role. Re-run the equivalent checks against the
+which runs 28 RLS scenarios as each role, plus 28 function-privilege and
+search_path checks and 12 retention scenarios. Re-run the equivalent checks against the
 deployed project to confirm the platform's own grants and the `auth` schema
 behave as expected. Run them in the SQL editor **as each seeded user**, not as
 the service role (the service role bypasses RLS, so testing with it proves
