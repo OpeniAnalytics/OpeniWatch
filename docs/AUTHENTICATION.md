@@ -1,7 +1,7 @@
 # Authentication and authorization
 
-**Status: implemented, verified locally, not verified against Microsoft or
-Resend.** Every flow is written and unit-tested against a mocked auth client.
+**Status: Microsoft sign-in is verified end to end against the deployed site.
+Magic link is not.**
 
 The OpeniWatch Supabase project **does** exist — `dbbmlufrefctmxgitosx` — and
 its schema is fully migrated and seeded. A previous revision of this document
@@ -10,10 +10,14 @@ Supabase organization from the one an account-wide listing returned, and the
 earlier search concluded from an incomplete list rather than querying the
 project reference directly.
 
-What remains unverified is anything requiring a browser against the live
-services: no Entra tenant round trip, no Resend delivery, no live magic link.
-This environment reaches Supabase and Netlify only through their management
-APIs, and has no network route to the deployed site itself.
+A previous revision also said the Entra round trip was unverified. That is no
+longer true, and the evidence is below.
+
+This environment still has no network route to `openiwatch.netlify.app` or to
+the Supabase project host — the gateway answers 403 to CONNECT for both — so
+nothing here was tested by driving a browser. The live evidence comes from the
+project's own gateway, auth and Realtime logs, which record what a real browser
+did.
 
 ---
 
@@ -36,6 +40,34 @@ from the provider, and a test fails the build if it returns.
 
 There is deliberately **no password reset flow**, because there is nothing to
 reset.
+
+### What "removed" does and does not mean
+
+Removing `signInWithPassword` closes OpeniWatch's password path. It does not, by
+itself, stop Supabase accepting `grant_type=password` — that is a project
+setting, readable only through the Management API or the dashboard, and this
+environment can reach neither. So the claim this document makes is the narrow
+one that is actually true:
+
+- **Enforced here:** no password UI, no `signInWithPassword`, provisioning never
+  supplies a password, and provisioning **refuses** an account that carries one.
+- **Observed live:** across a full 24-hour window of gateway logs there are
+  **zero** `grant_type=password` requests and five `grant_type=pkce` exchanges.
+- **Not proven:** that the project would reject a password grant if one were
+  attempted.
+
+As of 2026-09-10 the project holds **one auth user and zero password
+credentials**, so there is currently nothing for a password grant to succeed
+against.
+
+That last fact is also the answer to Supabase's `auth_leaked_password_protection`
+advisor, which stays open. It checks new passwords against HaveIBeenPwned. With
+no password credentials in the project and none creatable through provisioning,
+enabling it would protect nothing. It is left off deliberately rather than
+switched on to clear a warning — turning on a password feature to tidy a linter,
+in a product whose whole position is that passwords are not an approved sign-in
+method, would be the wrong instinct. Revisit it only if password auth is ever
+reintroduced.
 
 ---
 
@@ -296,17 +328,48 @@ existed before the run are left alone on rollback.
 - no password field, no signup, no password reset;
 - no secret key, SMTP credential or Azure secret in the built bundle.
 
-**Not verified — requires live services:**
+### Verified live, against the deployed site
 
-- that Entra ID accepts the redirect URI and returns a usable code;
-- that Supabase's Azure provider is configured with a working client id and
-  secret;
-- that Resend actually delivers the mail, and how fast;
-- that a real magic link verifies against a real Supabase project;
-- that the deployed `/auth/callback` and `/auth/confirm` resolve on
-  `openiwatch.netlify.app` — the SPA fallback is asserted locally, not against
-  the deployment;
-- session restoration against a real Supabase session after a refresh.
+On 2026-09-10 a real sign-in was recorded in the project's gateway and auth
+logs, from Chrome/Edge 152 on Windows. In order:
+
+| Time (UTC) | Event |
+| --- | --- |
+| 04:06:12 | `GET 302 /auth/v1/authorize?provider=azure&redirect_to=https%3A%2F%2Fopeniwatch.netlify.app%2Fauth%2Fcallback&scopes=email&code_challenge=…&code_challenge_method=s256` |
+| 04:06:14 | `GET 302 /auth/v1/callback?code=…` — Entra returns |
+| 04:06:15 | `POST 200 /auth/v1/token?grant_type=pkce` — the exchange |
+| 04:06:16 | `GET 200 /auth/v1/user`, then `profiles`, `user_roles`, `organization_memberships`, `program_memberships` — the membership gate |
+| 04:06:17 | reference data: `locations`, `threat_categories`, `operational_assignments`, `programs`, `organizations`, … all `200` |
+| 04:06:18 | Realtime tenant initialises, replication slot created |
+
+Four things are settled by that trace, and worth stating because each was
+previously an assumption:
+
+- **The redirect URI Entra accepts is the deployed one.** It appears in the
+  authorize request as `https://openiwatch.netlify.app/auth/callback`.
+- **The flow is genuinely PKCE.** `code_challenge_method=s256` is on the
+  authorize call and the exchange is `grant_type=pkce`. No token ever appeared
+  in a URL fragment.
+- **Only the `email` scope is requested.** `scopes=email`.
+- **The membership gate ran and passed.** `hydrateSession` reads those four
+  tables and throws before any reference data loads; the reference data loaded.
+
+The contrast is the other half of the evidence. The same account signed in at
+03:48:15, before it had been provisioned, and the auth log records a **logout at
+03:48:21** — six seconds later. Unauthorized, refused, gone. After provisioning,
+the session persists and the dashboard loads.
+
+**Not verified — still requires a browser or live delivery:**
+
+- that the auth code is stripped from the address bar and history — that is
+  `history.replaceState` in the client and leaves no server-side trace;
+- session restoration after a refresh: the session's `refreshed_at` is still
+  null, so the refresh token has never been exchanged;
+- that Resend delivers the mail, and how fast — the gateway has recorded **zero**
+  `/auth/v1/otp` requests, so no magic link has ever been requested;
+- that a real magic link verifies: zero `/auth/v1/verify` requests;
+- that `/auth/confirm` resolves on the deployment — `/auth/callback` now
+  demonstrably does, but the confirm route has never been exercised.
 
 **Supabase Auth configuration cannot be read or written from here.** The
 Supabase MCP control plane exposes the database, migrations, Edge Functions and
